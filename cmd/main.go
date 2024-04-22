@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -13,24 +12,22 @@ import (
 func main() {
 	var serverAddr string
 	var numClients int
-	var batchSize int = 100 // Fixed batch size
 
 	// Setup command-line flags
 	flag.StringVar(&serverAddr, "serverAddr", "localhost:8080", "WebSocket server address")
 	flag.IntVar(&numClients, "clients", 1, "Number of clients to simulate")
-	flag.Parse() // Don't forget to parse the command line arguments
+	flag.Parse() // Parse command line arguments
 
-	for i := 0; i < numClients; i += batchSize {
-		end := i + batchSize
-		if end > numClients {
-			end = numClients
+	const batchSize = 100
+	var wg sync.WaitGroup
+	wg.Add(numClients)
+	for batchStart := 0; batchStart < numClients; batchStart += batchSize {
+		batchEnd := batchStart + batchSize
+
+		if batchEnd > numClients {
+			batchEnd = numClients
 		}
-
-		var wg sync.WaitGroup
-		// Adjust the number of goroutines to wait for
-		wg.Add(end - i)
-
-		for j := i; j < end; j++ {
+		for i := batchStart; i < batchEnd; i++ {
 			go func(clientID int) {
 				defer wg.Done()
 
@@ -49,17 +46,10 @@ func main() {
 
 				// Start handling messages
 				client.HandleMessages()
-			}(j)
+			}(i)
 		}
-
-		// Wait for the current batch to complete before proceeding
-		wg.Wait()
-		fmt.Printf("Batch %d to %d completed\n", i, end-1)
-
-		// Optionally, include a slight pause before starting the next batch
-		// to reduce the load spike on the server or to simulate staggered connections
 		time.Sleep(1 * time.Second)
 	}
 
-	fmt.Println("All clients have finished their operations.")
+	wg.Wait()
 }
