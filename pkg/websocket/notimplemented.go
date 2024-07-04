@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"encoding/json"
 	"log"
 )
 
@@ -15,8 +14,6 @@ func (client *WebSocketClient) SendNotImplemented(msg OCPPMessage) error {
 	message := OCPPMessage{
 		MessageTypeID: 3,
 		MessageID:     msg.MessageID,
-		Action:        "NotImplemented",
-		Payload:       json.RawMessage(`{}`),
 	}
 
 	return client.sendMessage(message)

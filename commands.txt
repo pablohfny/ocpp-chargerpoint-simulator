@@ -1,0 +1,1 @@
+ go run cmd/main.go --serverAddr localhost:3000 --clients 5000
