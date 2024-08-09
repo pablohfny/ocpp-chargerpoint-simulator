@@ -26,7 +26,7 @@ func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, e
 		return nil, fmt.Errorf("client %s failed to connect: %v", clientId, err)
 	}
 
-	fmt.Println("Client %s Connected", clientId)
+	fmt.Printf("Client %s Connected\n", clientId)
 
 	return &WebSocketClient{
 		Id:   clientId,
@@ -130,7 +130,7 @@ func (client *WebSocketClient) Send(message entities.Message) {
 			fmt.Printf("failed to send message: %v", err)
 		}
 
-		fmt.Println("Sent Message: %v", message)
+		fmt.Printf("Sent Message: %v\n", message)
 		client.expectedMessage = message.ID
 
 	}()
