@@ -35,7 +35,7 @@ func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, e
 	}, nil
 }
 
-func NewWebsocketClientBatch(serverAddr string, numClients int, callsChannel chan entities.Message, resultsChannel chan entities.Message) {
+func NewWebsocketClientBatch(serverAddr string, numClients int, messagesChannel chan entities.Message) {
 	const batchSize = 100
 	var wg sync.WaitGroup
 	wg.Add(numClients)
@@ -57,7 +57,7 @@ func NewWebsocketClientBatch(serverAddr string, numClients int, callsChannel cha
 					return
 				}
 
-				client.Listen(callsChannel, resultsChannel)
+				client.Listen(messagesChannel)
 			}(i)
 		}
 	}
@@ -73,7 +73,7 @@ func (client *WebSocketClient) GetConn() any {
 	return client.conn
 }
 
-func (client *WebSocketClient) Listen(callsChannel chan entities.Message, resultsChannel chan entities.Message) {
+func (client *WebSocketClient) Listen(messagesChannel chan entities.Message) {
 	defer client.conn.Close()
 
 	for {
@@ -95,16 +95,7 @@ func (client *WebSocketClient) Listen(callsChannel chan entities.Message, result
 			client.expectedMessage = ""
 		}
 
-		switch message.Type {
-		case 2:
-			callsChannel <- message
-		case 3:
-			resultsChannel <- message
-		case 4:
-			fmt.Printf("Server Error: %v", message)
-		default:
-			fmt.Printf("Unsupported message type: %d", message.Type)
-		}
+		messagesChannel <- message
 	}
 }
 

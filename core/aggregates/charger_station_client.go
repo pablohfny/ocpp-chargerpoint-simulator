@@ -23,32 +23,46 @@ func NewChargerStationClient(client abstracts.MessagingClient) *ChargerStationCl
 func (station *ChargerStationClient) Init() {
 	time.Sleep(3 * time.Second)
 
-	callsChannel := make(chan entities.Message)
-	resultsChannel := make(chan entities.Message)
+	messagesChannel := make(chan entities.Message)
 
-	go func() {
-		for msg := range callsChannel {
-			fmt.Printf("Received call: %v\n", msg)
-		}
-	}()
-
-	go func() {
-		for msg := range resultsChannel {
-			fmt.Printf("Received result: %v\n", msg)
-		}
-	}()
+	go processMessages(messagesChannel)
 
 	done := make(chan bool)
 
 	go func() {
-		defer close(callsChannel)
-		defer close(resultsChannel)
+		defer close(messagesChannel)
 		station.boot()
-		station.Client.Listen(callsChannel, resultsChannel)
+		station.Client.Listen(messagesChannel)
 		done <- true
 	}()
 
 	<-done
+}
+
+func processMessages(channel chan entities.Message) {
+	for message := range channel {
+		switch message.Type {
+		case 2:
+			processCall(message)
+		case 3:
+			processResult(message)
+		case 4:
+			fmt.Printf("Server Error: %v", message)
+		default:
+			fmt.Printf("Unsupported message type: %d", message.Type)
+		}
+	}
+}
+
+func processCall(message entities.Message) {
+	switch message.Action {
+	default:
+		fmt.Printf("Received call: %v\n", message)
+	}
+}
+
+func processResult(message entities.Message) {
+	fmt.Printf("Received result: %v\n", message)
 }
 
 func (station *ChargerStationClient) initHeartbeat() {
