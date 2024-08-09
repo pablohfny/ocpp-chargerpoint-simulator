@@ -34,23 +34,30 @@ func New(rawMessage []byte) (Message, error) {
 
 	if err := json.Unmarshal(message[0], &ocppMessage.Type); err != nil {
 		log.Printf("Failed to parse message type ID: %v", err)
-		return ocppMessage, nil
+		return ocppMessage, err
 	}
 
 	if err := json.Unmarshal(message[1], &ocppMessage.ID); err != nil {
 		log.Printf("Failed to parse message ID: %v", err)
-		return ocppMessage, nil
+		return ocppMessage, err
 	}
 
 	if len(message) == 4 {
 		if err := json.Unmarshal(message[2], &ocppMessage.Action); err != nil {
 			log.Printf("Failed to parse action: %v", err)
-			return ocppMessage, nil
+			return ocppMessage, err
 		}
 
-		ocppMessage.Payload = message[3]
+		if err := json.Unmarshal(message[3], &ocppMessage.Payload); err != nil {
+			log.Printf("Failed to parse payload: %v", err)
+			return ocppMessage, err
+		}
+
 	} else {
-		ocppMessage.Payload = message[2]
+		if err := json.Unmarshal(message[2], &ocppMessage.Payload); err != nil {
+			log.Printf("Failed to parse action: %v", err)
+			return ocppMessage, err
+		}
 	}
 
 	return ocppMessage, nil

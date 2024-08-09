@@ -5,7 +5,7 @@ import (
 	"EV-Client-Simulator/core/factories/utils"
 )
 
-func NewCall(action string, payload map[string]interface{}) entities.Message {
+func CreateCallMessage(action string, payload map[string]interface{}) entities.Message {
 	return entities.Message{
 		Type:    2,
 		ID:      utils.GenerateUUIDV4(),

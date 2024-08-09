@@ -3,16 +3,18 @@ package messaging
 import (
 	"EV-Client-Simulator/core/entities"
 	"fmt"
-	"log"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 type WebSocketClient struct {
-	Id   string
-	conn *websocket.Conn
+	Id              string
+	conn            *websocket.Conn
+	mu              *sync.Mutex
+	expectedMessage string
 }
 
 func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, error) {
@@ -24,11 +26,12 @@ func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, e
 		return nil, fmt.Errorf("client %s failed to connect: %v", clientId, err)
 	}
 
-	log.Printf("Client %s Connected", clientId)
+	fmt.Println("Client %s Connected", clientId)
 
 	return &WebSocketClient{
 		Id:   clientId,
 		conn: conn,
+		mu:   &sync.Mutex{},
 	}, nil
 }
 
@@ -50,7 +53,7 @@ func NewWebsocketClientBatch(serverAddr string, numClients int, callsChannel cha
 				client, err := NewWebsocketClient(serverAddr, string(i))
 
 				if err != nil {
-					log.Printf("Failed to create client %d: %v", clientID, err)
+					fmt.Printf("Failed to create client %d: %v", clientID, err)
 					return
 				}
 
@@ -62,6 +65,14 @@ func NewWebsocketClientBatch(serverAddr string, numClients int, callsChannel cha
 	wg.Wait()
 }
 
+func (client *WebSocketClient) GetId() string {
+	return client.Id
+}
+
+func (client *WebSocketClient) GetConn() any {
+	return client.conn
+}
+
 func (client *WebSocketClient) Listen(callsChannel chan entities.Message, resultsChannel chan entities.Message) {
 	defer client.conn.Close()
 
@@ -69,15 +80,19 @@ func (client *WebSocketClient) Listen(callsChannel chan entities.Message, result
 		_, rawMessage, err := client.conn.ReadMessage()
 
 		if err != nil {
-			log.Printf("error reading message: %v", err)
+			fmt.Printf("error reading message: %v", err)
 			break
 		}
 
 		message, err := entities.New(rawMessage)
 
 		if err != nil {
-			log.Printf("Failed to parse message: %v", err)
+			fmt.Printf("Failed to parse message: %v", err)
 			continue
+		}
+
+		if client.expectedMessage == message.ID {
+			client.expectedMessage = ""
 		}
 
 		switch message.Type {
@@ -86,23 +101,51 @@ func (client *WebSocketClient) Listen(callsChannel chan entities.Message, result
 		case 3:
 			resultsChannel <- message
 		case 4:
-			log.Printf("Server Error: %v", message)
+			fmt.Printf("Server Error: %v", message)
 		default:
-			log.Printf("Unsupported message type: %d", message.Type)
+			fmt.Printf("Unsupported message type: %d", message.Type)
 		}
 	}
 }
 
-func (client *WebSocketClient) Send(message entities.Message) error {
-	rawMessage, err := message.ConvertToRawMessage()
+func (client *WebSocketClient) Send(message entities.Message) {
+	go func() {
+		client.mu.Lock()
+		defer client.mu.Unlock()
+		timeElapsed := 0 * time.Second
 
-	if err != nil {
-		return fmt.Errorf("failed to send message: %v", err)
-	}
+		for client.expectedMessage != "" && timeElapsed < 5*time.Second {
+			oneSecond := 1 * time.Second
+			time.Sleep(oneSecond)
+			timeElapsed += oneSecond
+		}
 
-	if err := client.conn.WriteMessage(websocket.TextMessage, rawMessage); err != nil {
-		return fmt.Errorf("failed to send message: %v", err)
-	}
+		rawMessage, err := message.ConvertToRawMessage()
 
-	return nil
+		if err != nil {
+			fmt.Printf("failed to send message: %v", err)
+		}
+
+		if err := client.conn.WriteMessage(websocket.TextMessage, rawMessage); err != nil {
+			fmt.Printf("failed to send message: %v", err)
+		}
+
+		fmt.Println("Sent Message: %v", message)
+		client.expectedMessage = message.ID
+
+	}()
+}
+
+func (client WebSocketClient) SendPeriodically(message entities.Message, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				client.Send(message)
+			}
+		}
+	}()
 }

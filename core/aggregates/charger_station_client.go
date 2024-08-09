@@ -9,3 +9,11 @@ type ChargerStationClient struct {
 	ChargerStation entities.ChargerStation
 	Client         abstracts.MessagingClient
 }
+
+func New(client abstracts.MessagingClient) *ChargerStationClient {
+	return &ChargerStationClient{
+		ChargerStation: entities.ChargerStation{
+			ID: client.GetId(),
+		},
+	}
+}
