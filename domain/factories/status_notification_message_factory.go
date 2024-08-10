@@ -1,11 +1,11 @@
 package factories
 
 import (
-	"EV-Client-Simulator/core/entities"
+	"EV-Client-Simulator/domain/entities"
 )
 
 func CreateStatusNotificationMessage(connectorId int, status string) entities.Message {
-	return CreateCallMessage("BootNotification", map[string]any{
+	return CreateCallMessage("StatusNotification", map[string]any{
 		"connectorId": connectorId,
 		"status":      status,
 	})

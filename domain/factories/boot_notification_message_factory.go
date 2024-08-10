@@ -1,7 +1,7 @@
 package factories
 
 import (
-	"EV-Client-Simulator/core/entities"
+	"EV-Client-Simulator/domain/entities"
 )
 
 func CreateBootNotificationMessage(payload map[string]interface{}) entities.Message {

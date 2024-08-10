@@ -9,7 +9,7 @@ type Message struct {
 	Type    int8
 	ID      string
 	Action  string
-	Payload any
+	Payload map[string]any
 }
 
 func (message Message) ConvertToRawMessage() ([]byte, error) {

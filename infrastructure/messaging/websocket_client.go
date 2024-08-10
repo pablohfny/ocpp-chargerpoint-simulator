@@ -1,7 +1,7 @@
 package messaging
 
 import (
-	"EV-Client-Simulator/core/entities"
+	"EV-Client-Simulator/domain/entities"
 	"fmt"
 	"net/url"
 	"sync"
@@ -99,7 +99,7 @@ func (client *WebSocketClient) Listen(messagesChannel chan entities.Message) {
 	}
 }
 
-func (client *WebSocketClient) Send(message entities.Message) {
+func (client *WebSocketClient) Send(message entities.Message, expectResult bool) {
 	go func() {
 		client.mu.Lock()
 		defer client.mu.Unlock()
@@ -122,12 +122,13 @@ func (client *WebSocketClient) Send(message entities.Message) {
 		}
 
 		fmt.Printf("Sent Message: %v\n", message)
-		client.expectedMessage = message.ID
-
+		if expectResult {
+			client.expectedMessage = message.ID
+		}
 	}()
 }
 
-func (client WebSocketClient) SendPeriodically(message entities.Message, interval time.Duration) {
+func (client WebSocketClient) SendPeriodically(message entities.Message, expectResult bool, interval time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -135,7 +136,7 @@ func (client WebSocketClient) SendPeriodically(message entities.Message, interva
 		for {
 			select {
 			case <-ticker.C:
-				client.Send(message)
+				client.Send(message, expectResult)
 			}
 		}
 	}()
