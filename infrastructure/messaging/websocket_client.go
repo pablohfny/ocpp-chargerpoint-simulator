@@ -99,45 +99,54 @@ func (client *WebSocketClient) Listen(messagesChannel chan entities.Message) {
 	}
 }
 
-func (client *WebSocketClient) Send(message entities.Message, expectResult bool) {
-	go func() {
-		client.mu.Lock()
-		defer client.mu.Unlock()
-		timeElapsed := 0 * time.Second
+func (client *WebSocketClient) Send(message entities.Message, expectResult bool) error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	timeElapsed := 0 * time.Second
 
-		for client.expectedMessage != "" && timeElapsed < 5*time.Second {
-			oneSecond := 1 * time.Second
-			time.Sleep(oneSecond)
-			timeElapsed += oneSecond
-		}
+	for client.expectedMessage != "" && timeElapsed < 5*time.Second {
+		oneSecond := 1 * time.Second
+		time.Sleep(oneSecond)
+		timeElapsed += oneSecond
+	}
 
-		rawMessage, err := message.ConvertToRawMessage()
+	rawMessage, err := message.ConvertToRawMessage()
 
-		if err != nil {
-			fmt.Printf("failed to send message: %v", err)
-		}
+	if err != nil {
+		return err
+	}
 
-		if err := client.conn.WriteMessage(websocket.TextMessage, rawMessage); err != nil {
-			fmt.Printf("failed to send message: %v", err)
-		}
+	if err := client.conn.WriteMessage(websocket.TextMessage, rawMessage); err != nil {
+		return err
+	}
 
-		fmt.Printf("Sent Message: %v\n", message)
-		if expectResult {
-			client.expectedMessage = message.ID
-		}
-	}()
+	fmt.Printf("Sent Message: %v\n", message)
+
+	if expectResult {
+		client.expectedMessage = message.ID
+	}
+
+	return nil
 }
 
-func (client WebSocketClient) SendPeriodically(message entities.Message, expectResult bool, interval time.Duration) {
+func (client *WebSocketClient) SendPeriodically(message entities.Message, expectResult bool, interval time.Duration) error {
+	var err error
+
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				client.Send(message, expectResult)
+		for range ticker.C {
+			err := client.Send(message, expectResult)
+			if err != nil {
+				return
 			}
 		}
 	}()
+
+	return err
+}
+
+func (client *WebSocketClient) Disconnect() error {
+	return client.conn.Close()
 }

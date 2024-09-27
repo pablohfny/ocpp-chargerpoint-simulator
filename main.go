@@ -10,11 +10,8 @@ import (
 
 func main() {
 	var serverAddr string
-	// var numClients int
 
-	// Setup command-line flags
 	flag.StringVar(&serverAddr, "serverAddr", "localhost:8080", "WebSocket server address")
-	// flag.IntVar(&numClients, "clients", 1, "Number of clients to simulate")
 	flag.Parse()
 
 	client, err := infrastructure_messaging.NewWebsocketClient(serverAddr, "virtual")

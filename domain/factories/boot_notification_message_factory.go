@@ -4,6 +4,6 @@ import (
 	"EV-Client-Simulator/domain/entities"
 )
 
-func CreateBootNotificationMessage(payload map[string]interface{}) entities.Message {
-	return CreateCallMessage("BootNotification", payload)
+func CreateBootNotificationCall(payload map[string]interface{}) entities.Message {
+	return CreateCallMessage("BootNotification", payload, 0)
 }

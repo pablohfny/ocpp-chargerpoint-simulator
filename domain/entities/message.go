@@ -6,10 +6,11 @@ import (
 )
 
 type Message struct {
-	Type    int8
-	ID      string
-	Action  string
-	Payload map[string]any
+	Type        int8
+	ID          string
+	Action      string
+	Payload     map[string]any
+	ConnectorId int
 }
 
 func (message Message) ConvertToRawMessage() ([]byte, error) {

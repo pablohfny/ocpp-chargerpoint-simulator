@@ -1,9 +1,5 @@
 package entities
 
-import (
-	"errors"
-)
-
 type ChargerStation struct {
 	ID            string          `json:"id"`
 	ChargerPoints []*ChargerPoint `json:"charger_points"`
@@ -27,15 +23,15 @@ func (station *ChargerStation) GetPoint(connectorId int) *ChargerPoint {
 	return nil
 }
 
-func (station *ChargerStation) StartRemoteTransaction(connectorId int, idTag string) error {
-
-	point := station.GetPoint(connectorId)
-
-	if point == nil {
-		return errors.New("point not found")
+func (station *ChargerStation) GetPointByTransaction(transactionId int) *ChargerPoint {
+	for _, point := range station.ChargerPoints {
+		if point.CurrentTransaction == transactionId {
+			return point
+		}
 	}
+	return nil
+}
 
-	point.StartRemoteTransaction(idTag)
-
+func (station *ChargerStation) Authorize(isAuthorized bool) error {
 	return nil
 }
