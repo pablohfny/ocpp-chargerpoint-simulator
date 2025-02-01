@@ -3,6 +3,7 @@ package entities
 import (
 	"EV-Client-Simulator/utils"
 	"errors"
+	"math"
 	"math/rand/v2"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ type ChargerPoint struct {
 	Status             string `json:"status"`
 	CurrentTransaction int    `json:"currentTransaction"`
 	MeterValue         float64
+	Soc                int16
 	stop               chan bool
 	mu                 *sync.Mutex
 }
@@ -22,6 +24,7 @@ func NewChargerPoint(id int) *ChargerPoint {
 		ID:         id,
 		Status:     "AVAILABLE",
 		MeterValue: 0,
+		Soc:        0,
 		mu:         &sync.Mutex{},
 	}
 }
@@ -87,18 +90,22 @@ func (point *ChargerPoint) StartTransaction(transactionId int) error {
 
 func (point *ChargerPoint) startMeterIncrement() {
 	point.stop = make(chan bool)
-	stopValue := 100 + rand.Float64()*500
+	point.Soc = 0
+	stopValue := 60000 + rand.Float64()*30000
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				increment := 5 + rand.Float64()*10
+				increment := 1000 + rand.Float64()*2000
 				point.MeterValue = utils.RoundFloat(point.MeterValue+increment, 2)
+				point.Soc = int16(math.Max(math.Min((point.MeterValue/stopValue)*100, 100), 0))
+
 				if point.MeterValue >= stopValue {
 					point.StopTransaction()
+					return
 				}
 			case <-point.stop:
 				return
@@ -108,10 +115,12 @@ func (point *ChargerPoint) startMeterIncrement() {
 }
 
 func (point *ChargerPoint) StopTransaction() error {
+	point.SetStatus("FINISHING")
+
 	if point.stop != nil {
+		point.stop <- true
 		close(point.stop)
 		point.stop = nil
 	}
-
-	return point.SetStatus("FINISHING")
+	return nil
 }

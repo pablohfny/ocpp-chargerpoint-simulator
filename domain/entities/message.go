@@ -14,6 +14,16 @@ type Message struct {
 }
 
 func (message Message) ConvertToRawMessage() ([]byte, error) {
+	if message.Action == "" {
+		messageArray := []any{
+			message.Type,
+			message.ID,
+			message.Payload,
+		}
+
+		return json.Marshal(messageArray)
+	}
+
 	messageArray := []any{
 		message.Type,
 		message.ID,

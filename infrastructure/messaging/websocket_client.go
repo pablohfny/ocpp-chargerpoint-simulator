@@ -102,12 +102,12 @@ func (client *WebSocketClient) Listen(messagesChannel chan entities.Message) {
 func (client *WebSocketClient) Send(message entities.Message, expectResult bool) error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	timeElapsed := 0 * time.Second
+	timeElapsed := 0 * time.Millisecond
 
-	for client.expectedMessage != "" && timeElapsed < 5*time.Second {
-		oneSecond := 1 * time.Second
-		time.Sleep(oneSecond)
-		timeElapsed += oneSecond
+	for client.expectedMessage != "" && timeElapsed < 900*time.Millisecond {
+		sleepDuration := 300 * time.Millisecond
+		time.Sleep(sleepDuration)
+		timeElapsed += sleepDuration
 	}
 
 	rawMessage, err := message.ConvertToRawMessage()
