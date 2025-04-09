@@ -1,8 +1,8 @@
 package services
 
 import (
-	"EV-Client-Simulator/domain/entities"
-	"EV-Client-Simulator/domain/factories"
+	"EV-Client-Simulator/app/domain/entities"
+	"EV-Client-Simulator/app/domain/factories"
 	"fmt"
 	"sync"
 	"time"
@@ -126,7 +126,10 @@ func (service *ChargerStationService) processStartTransactionResult(call entitie
 		}
 
 		go func() {
-			ticker := time.NewTicker(30 * time.Second)
+			if point.Status == "CHARGING" {
+				service.sendMessage(factories.CreateMeterValuesCall(point.ID, transactionId, point.MeterValue, point.Soc))
+			}
+			ticker := time.NewTicker(20 * time.Second)
 			defer ticker.Stop()
 			for range ticker.C {
 				if point.Status == "CHARGING" {

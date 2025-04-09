@@ -1,7 +1,7 @@
 package main
 
 import (
-	"EV-Client-Simulator/domain/entities"
+	"EV-Client-Simulator/app/domain/entities"
 	infrastructure_messaging "EV-Client-Simulator/infrastructure/messaging"
 	interface_messaging "EV-Client-Simulator/interface/messaging"
 	"flag"

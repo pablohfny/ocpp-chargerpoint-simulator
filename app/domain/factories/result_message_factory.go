@@ -1,7 +1,7 @@
 package factories
 
 import (
-	"EV-Client-Simulator/domain/entities"
+	"EV-Client-Simulator/app/domain/entities"
 )
 
 func CreateResultMessage(id string, payload map[string]interface{}, connectorId int) entities.Message {

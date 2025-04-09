@@ -2,8 +2,8 @@ package messaging
 
 import (
 	"EV-Client-Simulator/app/services"
-	"EV-Client-Simulator/domain/abstracts"
-	"EV-Client-Simulator/domain/entities"
+	"EV-Client-Simulator/app/domain/abstracts"
+	"EV-Client-Simulator/app/domain/entities"
 	"fmt"
 	"sync"
 	"time"

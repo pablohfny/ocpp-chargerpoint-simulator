@@ -1,7 +1,7 @@
 package factories
 
 import (
-	"EV-Client-Simulator/domain/entities"
+	"EV-Client-Simulator/app/domain/entities"
 )
 
 func CreateStatusNotificationCall(connectorId int, status string) entities.Message {

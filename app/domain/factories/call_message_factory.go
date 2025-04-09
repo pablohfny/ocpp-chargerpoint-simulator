@@ -1,8 +1,8 @@
 package factories
 
 import (
-	"EV-Client-Simulator/domain/entities"
-	"EV-Client-Simulator/domain/factories/utils"
+	"EV-Client-Simulator/app/domain/entities"
+	"EV-Client-Simulator/app/domain/factories/utils"
 )
 
 func CreateCallMessage(action string, payload map[string]interface{}, connectorId int) entities.Message {

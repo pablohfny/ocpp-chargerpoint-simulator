@@ -1,7 +1,7 @@
 package abstracts
 
 import (
-	"EV-Client-Simulator/domain/entities"
+	"EV-Client-Simulator/app/domain/entities"
 	"time"
 )
 
