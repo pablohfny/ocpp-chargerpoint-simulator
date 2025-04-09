@@ -136,8 +136,9 @@ func (service *ChargerStationService) processStartTransactionResult(call entitie
 					service.sendMessage(factories.CreateMeterValuesCall(point.ID, transactionId, point.MeterValue, point.Soc))
 				} else if point.Status == "FINISHING" && point.CurrentTransaction == transactionId {
 					service.sendMessage(factories.CreateMeterValuesCall(point.ID, transactionId, point.MeterValue, point.Soc))
-					service.sendMessage(factories.CreateStopTransactionCall(point.ID, transactionId, point.MeterValue))
 					service.sendMessage(factories.CreateStatusNotificationCall(point.ID, point.Status))
+					time.Sleep(3 * time.Second)
+					service.sendMessage(factories.CreateStopTransactionCall(point.ID, transactionId, point.MeterValue))
 					time.Sleep(5 * time.Second)
 					point.SetStatus("AVAILABLE")
 					service.sendMessage(factories.CreateStatusNotificationCall(point.ID, point.Status))

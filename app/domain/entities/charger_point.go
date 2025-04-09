@@ -91,7 +91,7 @@ func (point *ChargerPoint) StartTransaction(transactionId int) error {
 func (point *ChargerPoint) startMeterIncrement() {
 	point.stop = make(chan bool)
 	point.Soc = 0
-	stopValue := 30000 + rand.Float64()*20000
+	stopValue := 20000 + rand.Float64()*20000
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
@@ -99,7 +99,7 @@ func (point *ChargerPoint) startMeterIncrement() {
 		for {
 			select {
 			case <-ticker.C:
-				increment := 1000 + rand.Float64()*5000
+				increment := 4000 + rand.Float64()*2000
 				point.MeterValue = utils.RoundFloat(point.MeterValue+increment, 2)
 				point.Soc = int16(math.Max(math.Min((point.MeterValue/stopValue)*100, 100), 0))
 
