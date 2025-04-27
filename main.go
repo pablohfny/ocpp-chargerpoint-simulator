@@ -6,12 +6,13 @@ import (
 	interface_messaging "EV-Client-Simulator/interface/messaging"
 	"flag"
 	"fmt"
+	"os"
 )
 
 func main() {
 	var serverAddr string
 
-	flag.StringVar(&serverAddr, "serverAddr", "localhost:8080", "WebSocket server address")
+	flag.StringVar(&serverAddr, "serverAddr", os.Getenv("SERVER_ADDR"), "WebSocket server address")
 	flag.Parse()
 
 	client, err := infrastructure_messaging.NewWebsocketClient(serverAddr, "virtual")
