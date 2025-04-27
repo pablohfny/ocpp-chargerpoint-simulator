@@ -18,28 +18,41 @@ type WebSocketClient struct {
 }
 
 func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, error) {
-	u := url.URL{Scheme: "wss", Host: serverAddr, Path: clientId}
+	// Try both secure and non-secure connections
+	schemes := []string{"wss", "ws"}
+	var lastErr error
 
-	fmt.Printf("Connecting to %s\n", u.String())
+	for _, scheme := range schemes {
+		u := url.URL{Scheme: scheme, Host: serverAddr, Path: clientId}
+		fmt.Printf("Attempting to connect to %s\n", u.String())
 
-	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		// Create a dialer with timeout
+		dialer := &websocket.Dialer{
+			Proxy:            websocket.DefaultDialer.Proxy,
+			HandshakeTimeout: 10 * time.Second,
+		}
 
-	if err != nil {
+		conn, resp, err := dialer.Dial(u.String(), nil)
+
+		if err == nil {
+			fmt.Printf("Client %s Connected using %s\n", clientId, scheme)
+			return &WebSocketClient{
+				Id:   clientId,
+				conn: conn,
+				mu:   &sync.Mutex{},
+			}, nil
+		}
+
+		lastErr = err
 		var statusCode int
 		if resp != nil {
 			statusCode = resp.StatusCode
-			fmt.Printf("Handshake failed with status: %d\n", statusCode)
+			fmt.Printf("Handshake failed with status: %d for %s\n", statusCode, u.String())
 		}
-		return nil, fmt.Errorf("client %s failed to connect: %v (status: %d)", clientId, err, statusCode)
+		fmt.Printf("Connection attempt failed for %s: %v\n", u.String(), err)
 	}
 
-	fmt.Printf("Client %s Connected\n", clientId)
-
-	return &WebSocketClient{
-		Id:   clientId,
-		conn: conn,
-		mu:   &sync.Mutex{},
-	}, nil
+	return nil, fmt.Errorf("client %s failed to connect: %v", clientId, lastErr)
 }
 
 func NewWebsocketClientBatch(serverAddr string, numClients int, messagesChannel chan entities.Message) {
