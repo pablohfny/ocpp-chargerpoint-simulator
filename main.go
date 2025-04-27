@@ -11,11 +11,13 @@ import (
 
 func main() {
 	var serverAddr string
+	var clientId string
 
 	flag.StringVar(&serverAddr, "serverAddr", os.Getenv("SERVER_ADDR"), "WebSocket server address")
+	flag.StringVar(&clientId, "clientId", os.Getenv("CLIENT_ID"), "Client ID")
 	flag.Parse()
 
-	client, err := infrastructure_messaging.NewWebsocketClient(serverAddr, "virtual")
+	client, err := infrastructure_messaging.NewWebsocketClient(serverAddr, clientId)
 
 	if err != nil {
 		fmt.Printf("Error creating client %v", err)
