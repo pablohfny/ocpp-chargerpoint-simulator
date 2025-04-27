@@ -1,3 +1,4 @@
  go run . --serverAddr api-dev.star-ev.com
  go run . --serverAddr api-hml.star-ev.com
  go run . --serverAddr localhost:3000
+ go run . --serverAddr nestjs-ocpp-server-development.up.railway.app

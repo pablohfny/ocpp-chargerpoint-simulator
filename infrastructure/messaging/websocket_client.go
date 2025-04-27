@@ -18,12 +18,19 @@ type WebSocketClient struct {
 }
 
 func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, error) {
-	u := url.URL{Scheme: "ws", Host: serverAddr, Path: clientId}
+	u := url.URL{Scheme: "wss", Host: serverAddr, Path: clientId}
 
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	fmt.Printf("Connecting to %s\n", u.String())
+
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 
 	if err != nil {
-		return nil, fmt.Errorf("client %s failed to connect: %v", clientId, err)
+		var statusCode int
+		if resp != nil {
+			statusCode = resp.StatusCode
+			fmt.Printf("Handshake failed with status: %d\n", statusCode)
+		}
+		return nil, fmt.Errorf("client %s failed to connect: %v (status: %d)", clientId, err, statusCode)
 	}
 
 	fmt.Printf("Client %s Connected\n", clientId)
@@ -50,10 +57,10 @@ func NewWebsocketClientBatch(serverAddr string, numClients int, messagesChannel 
 			go func(clientID int) {
 				defer wg.Done()
 
-				client, err := NewWebsocketClient(serverAddr, string(i))
+				client, err := NewWebsocketClient(serverAddr, fmt.Sprintf("%d", clientID))
 
 				if err != nil {
-					fmt.Printf("Failed to create client %d: %v", clientID, err)
+					fmt.Printf("Failed to create client %d: %v\n", clientID, err)
 					return
 				}
 

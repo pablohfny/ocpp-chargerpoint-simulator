@@ -91,15 +91,15 @@ func (point *ChargerPoint) StartTransaction(transactionId int) error {
 func (point *ChargerPoint) startMeterIncrement() {
 	point.stop = make(chan bool)
 	point.Soc = 0
-	stopValue := 20000 + rand.Float64()*20000
+	stopValue := 10000 + rand.Float64()*1000
 
 	go func() {
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				increment := 4000 + rand.Float64()*2000
+				increment := 2000 + rand.Float64()*1000
 				point.MeterValue = utils.RoundFloat(point.MeterValue+increment, 2)
 				point.Soc = int16(math.Max(math.Min((point.MeterValue/stopValue)*100, 100), 0))
 

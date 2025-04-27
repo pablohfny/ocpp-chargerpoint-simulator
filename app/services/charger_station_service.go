@@ -129,7 +129,7 @@ func (service *ChargerStationService) processStartTransactionResult(call entitie
 			if point.Status == "CHARGING" {
 				service.sendMessage(factories.CreateMeterValuesCall(point.ID, transactionId, point.MeterValue, point.Soc))
 			}
-			ticker := time.NewTicker(20 * time.Second)
+			ticker := time.NewTicker(5 * time.Second)
 			defer ticker.Stop()
 			for range ticker.C {
 				if point.Status == "CHARGING" {
