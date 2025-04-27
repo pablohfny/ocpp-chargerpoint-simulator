@@ -15,10 +15,12 @@ type WebSocketClient struct {
 	conn            *websocket.Conn
 	mu              *sync.Mutex
 	expectedMessage string
+	serverAddr      string
+	isConnected     bool
+	stopReconnect   chan struct{}
 }
 
 func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, error) {
-	// Try both secure and non-secure connections
 	schemes := []string{"wss", "ws"}
 	var lastErr error
 
@@ -37,9 +39,12 @@ func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, e
 		if err == nil {
 			fmt.Printf("Client %s Connected using %s\n", clientId, scheme)
 			return &WebSocketClient{
-				Id:   clientId,
-				conn: conn,
-				mu:   &sync.Mutex{},
+				Id:            clientId,
+				conn:          conn,
+				mu:            &sync.Mutex{},
+				serverAddr:    serverAddr,
+				isConnected:   true,
+				stopReconnect: make(chan struct{}),
 			}, nil
 		}
 
@@ -94,34 +99,102 @@ func (client *WebSocketClient) GetConn() any {
 }
 
 func (client *WebSocketClient) Listen(messagesChannel chan entities.Message) {
-	defer client.conn.Close()
+	defer func() {
+		client.isConnected = false
+		client.reconnect(messagesChannel)
+	}()
 
 	for {
-		_, rawMessage, err := client.conn.ReadMessage()
+		select {
+		case <-client.stopReconnect:
+			return
+		default:
+			_, rawMessage, err := client.conn.ReadMessage()
 
-		if err != nil {
-			fmt.Printf("error reading message: %v", err)
-			break
+			if err != nil {
+				fmt.Printf("Client %s: error reading message: %v\n", client.Id, err)
+				return // Trigger reconnect via defer
+			}
+
+			message, err := entities.New(rawMessage)
+
+			if err != nil {
+				fmt.Printf("Client %s: Failed to parse message: %v\n", client.Id, err)
+				continue
+			}
+
+			if client.expectedMessage == message.ID {
+				client.expectedMessage = ""
+			}
+
+			messagesChannel <- message
 		}
-
-		message, err := entities.New(rawMessage)
-
-		if err != nil {
-			fmt.Printf("Failed to parse message: %v", err)
-			continue
-		}
-
-		if client.expectedMessage == message.ID {
-			client.expectedMessage = ""
-		}
-
-		messagesChannel <- message
 	}
+}
+
+func (client *WebSocketClient) reconnect(messagesChannel chan entities.Message) {
+	maxRetries := 10
+	initialBackoff := 500 * time.Millisecond
+	maxBackoff := 30 * time.Second
+	backoff := initialBackoff
+	retries := 0
+
+	for retries < maxRetries {
+		select {
+		case <-client.stopReconnect:
+			return
+		default:
+			fmt.Printf("Client %s: Attempting to reconnect (retry %d/%d)...\n", client.Id, retries+1, maxRetries)
+
+			schemes := []string{"wss", "ws"}
+			for _, scheme := range schemes {
+				u := url.URL{Scheme: scheme, Host: client.serverAddr, Path: client.Id}
+				fmt.Printf("Client %s: Reconnecting to %s\n", client.Id, u.String())
+
+				dialer := &websocket.Dialer{
+					HandshakeTimeout: 10 * time.Second,
+				}
+
+				conn, _, err := dialer.Dial(u.String(), nil)
+
+				if err == nil {
+					fmt.Printf("Client %s: Successfully reconnected using %s\n", client.Id, scheme)
+
+					client.mu.Lock()
+					client.conn = conn
+					client.isConnected = true
+					client.mu.Unlock()
+
+					// Resume listening
+					go client.Listen(messagesChannel)
+					return
+				}
+
+				fmt.Printf("Client %s: Reconnection attempt failed for %s: %v\n", client.Id, u.String(), err)
+			}
+
+			retries++
+			time.Sleep(backoff)
+
+			// Exponential backoff with jitter
+			backoff = time.Duration(float64(backoff) * 1.5)
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+		}
+	}
+
+	fmt.Printf("Client %s: Failed to reconnect after %d attempts\n", client.Id, maxRetries)
 }
 
 func (client *WebSocketClient) Send(message entities.Message, expectResult bool) error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
+
+	if !client.isConnected {
+		return fmt.Errorf("client %s is not connected", client.Id)
+	}
+
 	timeElapsed := 0 * time.Millisecond
 
 	for client.expectedMessage != "" && timeElapsed < 900*time.Millisecond {
@@ -137,6 +210,7 @@ func (client *WebSocketClient) Send(message entities.Message, expectResult bool)
 	}
 
 	if err := client.conn.WriteMessage(websocket.TextMessage, rawMessage); err != nil {
+		client.isConnected = false
 		return err
 	}
 
@@ -168,5 +242,10 @@ func (client *WebSocketClient) SendPeriodically(message entities.Message, expect
 }
 
 func (client *WebSocketClient) Disconnect() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
+	close(client.stopReconnect)
+	client.isConnected = false
 	return client.conn.Close()
 }
