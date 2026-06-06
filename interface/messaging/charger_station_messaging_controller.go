@@ -1,9 +1,10 @@
 package messaging
 
 import (
-	"EV-Client-Simulator/app/services"
 	"EV-Client-Simulator/app/domain/abstracts"
 	"EV-Client-Simulator/app/domain/entities"
+	"EV-Client-Simulator/app/services"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -11,11 +12,13 @@ import (
 
 type ChargerStationMessagingController struct {
 	service                *services.ChargerStationService
+	logService             *services.MessageLogService
 	serverMessagesChannel  chan entities.Message
 	stationMessagesChannel chan entities.Message
 	errorsChannel          chan error
 	client                 abstracts.MessagingClient
 	wg                     sync.WaitGroup
+	connected              bool
 }
 
 func NewChargerStationMessagingController(station *entities.ChargerStation, client abstracts.MessagingClient) ChargerStationMessagingController {
@@ -25,11 +28,45 @@ func NewChargerStationMessagingController(station *entities.ChargerStation, clie
 
 	return ChargerStationMessagingController{
 		service:                services.NewChargerStationSerice(station, stationMessagesChannel, errorsChannel),
+		logService:             services.NewMessageLogService(1000),
 		serverMessagesChannel:  serverMessagesChannel,
 		stationMessagesChannel: stationMessagesChannel,
 		errorsChannel:          errorsChannel,
 		client:                 client,
+		connected:              true,
 	}
+}
+
+// GetService returns the charger station service
+func (controller *ChargerStationMessagingController) GetService() *services.ChargerStationService {
+	return controller.service
+}
+
+// GetLogService returns the message log service
+func (controller *ChargerStationMessagingController) GetLogService() *services.MessageLogService {
+	return controller.logService
+}
+
+// IsConnected returns the connection status
+func (controller *ChargerStationMessagingController) IsConnected() *bool {
+	return &controller.connected
+}
+
+// Reconnect attempts to reconnect the WebSocket
+func (controller *ChargerStationMessagingController) Reconnect() error {
+	controller.connected = false
+	if err := controller.client.Reconnect(); err != nil {
+		return err
+	}
+	controller.connected = true
+	return nil
+}
+
+// Disconnect closes the WebSocket connection
+func (controller *ChargerStationMessagingController) Disconnect() error {
+	controller.connected = false
+	controller.client.Disconnect()
+	return nil
 }
 
 func (controller *ChargerStationMessagingController) Init() {
@@ -56,6 +93,10 @@ func (controller *ChargerStationMessagingController) processMessages() {
 	go controller.client.Listen(controller.serverMessagesChannel)
 
 	for message := range controller.serverMessagesChannel {
+		// Log incoming message
+		rawBytes, _ := json.Marshal(message)
+		controller.logService.LogIncoming(message, string(rawBytes))
+
 		switch message.Type {
 		case 2:
 			controller.service.ProcessCall(message)
@@ -79,6 +120,10 @@ func (controller *ChargerStationMessagingController) processErrors() {
 func (controller *ChargerStationMessagingController) sendMessages() {
 	defer controller.wg.Done()
 	for message := range controller.stationMessagesChannel {
+		// Log outgoing message
+		rawBytes, _ := json.Marshal(message)
+		controller.logService.LogOutgoing(message, string(rawBytes))
+
 		err := controller.client.Send(message, message.Type == 2)
 		if err != nil {
 			controller.close()

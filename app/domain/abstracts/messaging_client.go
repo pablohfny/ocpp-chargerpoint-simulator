@@ -12,4 +12,5 @@ type MessagingClient interface {
 	Send(message entities.Message, expectResult bool) error
 	SendPeriodically(message entities.Message, expectResult bool, interval time.Duration) error
 	Disconnect() error
+	Reconnect() error
 }

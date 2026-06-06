@@ -249,3 +249,36 @@ func (client *WebSocketClient) Disconnect() error {
 	client.isConnected = false
 	return client.conn.Close()
 }
+
+func (client *WebSocketClient) Reconnect() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
+	// Close existing connection if open
+	if client.conn != nil {
+		client.conn.Close()
+	}
+
+	schemes := []string{"wss", "ws"}
+	for _, scheme := range schemes {
+		u := url.URL{Scheme: scheme, Host: client.serverAddr, Path: client.Id}
+		fmt.Printf("Client %s: Manual reconnect to %s\n", client.Id, u.String())
+
+		dialer := &websocket.Dialer{
+			HandshakeTimeout: 10 * time.Second,
+		}
+
+		conn, _, err := dialer.Dial(u.String(), nil)
+		if err == nil {
+			fmt.Printf("Client %s: Successfully reconnected using %s\n", client.Id, scheme)
+			client.conn = conn
+			client.isConnected = true
+			client.stopReconnect = make(chan struct{})
+			return nil
+		}
+
+		fmt.Printf("Client %s: Reconnection attempt failed for %s: %v\n", client.Id, u.String(), err)
+	}
+
+	return fmt.Errorf("failed to reconnect client %s", client.Id)
+}
