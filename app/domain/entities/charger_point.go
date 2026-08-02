@@ -39,13 +39,13 @@ type ChargerPoint struct {
 
 func NewChargerPoint(id int) *ChargerPoint {
 	return &ChargerPoint{
-		ID:          id,
-		Status:      StatusAvailable,
-		ErrorCode:   ErrorNoError,
-		MeterValue:  0,
-		Soc:         0,
+		ID:           id,
+		Status:       StatusAvailable,
+		ErrorCode:    ErrorNoError,
+		MeterValue:   0,
+		Soc:          0,
 		CablePlugged: false,
-		mu:          &sync.Mutex{},
+		mu:           &sync.Mutex{},
 	}
 }
 

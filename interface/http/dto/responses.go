@@ -29,6 +29,8 @@ type ConnectorResponse struct {
 	ReservationIdTag   string    `json:"reservationIdTag,omitempty"`
 	ReservationExpiry  time.Time `json:"reservationExpiry,omitempty"`
 	CablePlugged       bool      `json:"cablePlugged"`
+	BatteryPercent     int       `json:"batteryPercent"`
+	BatteryCapacityKWh float64   `json:"batteryCapacityKWh"`
 }
 
 // TransactionResponse represents a transaction
@@ -58,10 +60,10 @@ type ConfigKeyResponse struct {
 
 // SimulationSettingsResponse represents simulation settings
 type SimulationSettingsResponse struct {
-	ManualMode       bool                             `json:"manualMode"`
-	Delays           entities.DelaySettings           `json:"delays"`
-	FailureRates     entities.FailureRateSettings     `json:"failureRates"`
-	ErrorInjection   entities.ErrorInjectionSettings  `json:"errorInjection"`
+	ManualMode       bool                              `json:"manualMode"`
+	Delays           entities.DelaySettings            `json:"delays"`
+	FailureRates     entities.FailureRateSettings      `json:"failureRates"`
+	ErrorInjection   entities.ErrorInjectionSettings   `json:"errorInjection"`
 	ChargingBehavior entities.ChargingBehaviorSettings `json:"chargingBehavior"`
 	Transaction      entities.TransactionSettings      `json:"transaction"`
 }
@@ -110,8 +112,9 @@ type MeterSentResponse struct {
 	QueueSize  int     `json:"queueSize"`
 }
 
-// NewConnectorResponse creates a ConnectorResponse from a ChargerPoint
-func NewConnectorResponse(point *entities.ChargerPoint) ConnectorResponse {
+// NewConnectorResponse creates a ConnectorResponse from a ChargerPoint,
+// deriving the battery level from the given virtual battery capacity.
+func NewConnectorResponse(point *entities.ChargerPoint, batteryCapacityKWh float64) ConnectorResponse {
 	return ConnectorResponse{
 		ID:                 point.ID,
 		Status:             string(point.Status),
@@ -126,5 +129,7 @@ func NewConnectorResponse(point *entities.ChargerPoint) ConnectorResponse {
 		ReservationIdTag:   point.ReservationIdTag,
 		ReservationExpiry:  point.ReservationExpiry,
 		CablePlugged:       point.CablePlugged,
+		BatteryPercent:     point.BatteryPercent(batteryCapacityKWh),
+		BatteryCapacityKWh: batteryCapacityKWh,
 	}
 }

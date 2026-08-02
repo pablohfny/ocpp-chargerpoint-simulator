@@ -9,9 +9,9 @@ import (
 // SimulationSettings controls the simulator behavior for testing
 type SimulationSettings struct {
 	ManualMode       bool                     `json:"manualMode"`
-	Delays           DelaySettings           `json:"delays"`
-	FailureRates     FailureRateSettings     `json:"failureRates"`
-	ErrorInjection   ErrorInjectionSettings  `json:"errorInjection"`
+	Delays           DelaySettings            `json:"delays"`
+	FailureRates     FailureRateSettings      `json:"failureRates"`
+	ErrorInjection   ErrorInjectionSettings   `json:"errorInjection"`
 	ChargingBehavior ChargingBehaviorSettings `json:"chargingBehavior"`
 	Transaction      TransactionSettings      `json:"transaction"`
 	mu               sync.RWMutex
@@ -51,22 +51,22 @@ type ErrorInjectionSettings struct {
 
 // ChargingBehaviorSettings configures charging simulation parameters
 type ChargingBehaviorSettings struct {
-	MinChargingPowerKW     float64 `json:"minChargingPowerKW"`
-	MaxChargingPowerKW     float64 `json:"maxChargingPowerKW"`
-	MeterValueIntervalSec  int     `json:"meterValueIntervalSec"`
-	MeterIncrementIntervalSec int  `json:"meterIncrementIntervalSec"`
-	AutoStopAtSOC          int     `json:"autoStopAtSOC"`
-	EVDisconnectProbability float64 `json:"evDisconnectProbability"`
+	MinChargingPowerKW        float64 `json:"minChargingPowerKW"`
+	MaxChargingPowerKW        float64 `json:"maxChargingPowerKW"`
+	MeterValueIntervalSec     int     `json:"meterValueIntervalSec"`
+	MeterIncrementIntervalSec int     `json:"meterIncrementIntervalSec"`
+	AutoStopAtSOC             int     `json:"autoStopAtSOC"`
+	EVDisconnectProbability   float64 `json:"evDisconnectProbability"`
 }
 
 // TransactionSettings configures per-transaction simulation parameters
 type TransactionSettings struct {
-	MeterStepWh      float64 `json:"meterStepWh"`      // Fixed Wh increment per tick (default: 1000)
-	StartSOC         int     `json:"startSOC"`          // Starting SOC percentage (default: 0)
-	FinalSOC         int     `json:"finalSOC"`          // Target SOC to trigger stop behavior (default: 100)
-	FinalSOCBehavior string  `json:"finalSOCBehavior"`  // "Finishing" or "SuspendedEV" (default: "Finishing")
-	StopDelaySec        int     `json:"stopDelaySec"`        // Delay in seconds before StopTransaction after FinalSOC (default: 5)
-	PreparingDurationSec int    `json:"preparingDurationSec"` // Seconds to stay in Preparing before Charging (default: 30)
+	MeterStepWh          float64 `json:"meterStepWh"`          // Fixed Wh increment per tick (default: 1000)
+	StartSOC             int     `json:"startSOC"`             // Starting SOC percentage (default: 0)
+	FinalSOC             int     `json:"finalSOC"`             // Target SOC to trigger stop behavior (default: 100)
+	FinalSOCBehavior     string  `json:"finalSOCBehavior"`     // "Finishing" or "SuspendedEV" (default: "Finishing")
+	StopDelaySec         int     `json:"stopDelaySec"`         // Delay in seconds before StopTransaction after FinalSOC (default: 5)
+	PreparingDurationSec int     `json:"preparingDurationSec"` // Seconds to stay in Preparing before Charging (default: 30)
 }
 
 // NewSimulationSettings creates simulation settings with sensible defaults
@@ -107,11 +107,11 @@ func NewSimulationSettings() *SimulationSettings {
 			EVDisconnectProbability:   0.0,
 		},
 		Transaction: TransactionSettings{
-			MeterStepWh:         1000,
-			StartSOC:            0,
-			FinalSOC:            100,
-			FinalSOCBehavior:    "Finishing",
-			StopDelaySec:        5,
+			MeterStepWh:          1000,
+			StartSOC:             0,
+			FinalSOC:             100,
+			FinalSOCBehavior:     "Finishing",
+			StopDelaySec:         5,
 			PreparingDurationSec: 10,
 		},
 	}

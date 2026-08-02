@@ -19,22 +19,22 @@ const (
 type ChargePointErrorCode string
 
 const (
-	ErrorNoError               ChargePointErrorCode = "NoError"
-	ErrorConnectorLockFailure  ChargePointErrorCode = "ConnectorLockFailure"
-	ErrorEVCommunicationError  ChargePointErrorCode = "EVCommunicationError"
-	ErrorGroundFailure         ChargePointErrorCode = "GroundFailure"
-	ErrorHighTemperature       ChargePointErrorCode = "HighTemperature"
-	ErrorInternalError         ChargePointErrorCode = "InternalError"
-	ErrorLocalListConflict     ChargePointErrorCode = "LocalListConflict"
-	ErrorOtherError            ChargePointErrorCode = "OtherError"
-	ErrorOverCurrentFailure    ChargePointErrorCode = "OverCurrentFailure"
-	ErrorOverVoltage           ChargePointErrorCode = "OverVoltage"
-	ErrorPowerMeterFailure     ChargePointErrorCode = "PowerMeterFailure"
-	ErrorPowerSwitchFailure    ChargePointErrorCode = "PowerSwitchFailure"
-	ErrorReaderFailure         ChargePointErrorCode = "ReaderFailure"
-	ErrorResetFailure          ChargePointErrorCode = "ResetFailure"
-	ErrorUnderVoltage          ChargePointErrorCode = "UnderVoltage"
-	ErrorWeakSignal            ChargePointErrorCode = "WeakSignal"
+	ErrorNoError              ChargePointErrorCode = "NoError"
+	ErrorConnectorLockFailure ChargePointErrorCode = "ConnectorLockFailure"
+	ErrorEVCommunicationError ChargePointErrorCode = "EVCommunicationError"
+	ErrorGroundFailure        ChargePointErrorCode = "GroundFailure"
+	ErrorHighTemperature      ChargePointErrorCode = "HighTemperature"
+	ErrorInternalError        ChargePointErrorCode = "InternalError"
+	ErrorLocalListConflict    ChargePointErrorCode = "LocalListConflict"
+	ErrorOtherError           ChargePointErrorCode = "OtherError"
+	ErrorOverCurrentFailure   ChargePointErrorCode = "OverCurrentFailure"
+	ErrorOverVoltage          ChargePointErrorCode = "OverVoltage"
+	ErrorPowerMeterFailure    ChargePointErrorCode = "PowerMeterFailure"
+	ErrorPowerSwitchFailure   ChargePointErrorCode = "PowerSwitchFailure"
+	ErrorReaderFailure        ChargePointErrorCode = "ReaderFailure"
+	ErrorResetFailure         ChargePointErrorCode = "ResetFailure"
+	ErrorUnderVoltage         ChargePointErrorCode = "UnderVoltage"
+	ErrorWeakSignal           ChargePointErrorCode = "WeakSignal"
 )
 
 // ResetType represents OCPP 1.6 Reset types
@@ -122,10 +122,10 @@ const (
 type MessageTrigger string
 
 const (
-	TriggerBootNotification        MessageTrigger = "BootNotification"
-	TriggerDiagnosticsStatusNotif  MessageTrigger = "DiagnosticsStatusNotification"
-	TriggerFirmwareStatusNotif     MessageTrigger = "FirmwareStatusNotification"
-	TriggerHeartbeat               MessageTrigger = "Heartbeat"
-	TriggerMeterValues             MessageTrigger = "MeterValues"
-	TriggerStatusNotification      MessageTrigger = "StatusNotification"
+	TriggerBootNotification       MessageTrigger = "BootNotification"
+	TriggerDiagnosticsStatusNotif MessageTrigger = "DiagnosticsStatusNotification"
+	TriggerFirmwareStatusNotif    MessageTrigger = "FirmwareStatusNotification"
+	TriggerHeartbeat              MessageTrigger = "Heartbeat"
+	TriggerMeterValues            MessageTrigger = "MeterValues"
+	TriggerStatusNotification     MessageTrigger = "StatusNotification"
 )

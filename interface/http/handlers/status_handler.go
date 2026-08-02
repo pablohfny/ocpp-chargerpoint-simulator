@@ -13,19 +13,21 @@ import (
 
 // StatusHandler handles status-related endpoints
 type StatusHandler struct {
-	stationService *services.ChargerStationService
-	clientID       string
-	serverAddr     string
-	connected      *bool
+	stationService     *services.ChargerStationService
+	clientID           string
+	serverAddr         string
+	connected          *bool
+	batteryCapacityKWh float64
 }
 
 // NewStatusHandler creates a new status handler
-func NewStatusHandler(stationService *services.ChargerStationService, clientID, serverAddr string, connected *bool) *StatusHandler {
+func NewStatusHandler(stationService *services.ChargerStationService, clientID, serverAddr string, connected *bool, batteryCapacityKWh float64) *StatusHandler {
 	return &StatusHandler{
-		stationService: stationService,
-		clientID:       clientID,
-		serverAddr:     serverAddr,
-		connected:      connected,
+		stationService:     stationService,
+		clientID:           clientID,
+		serverAddr:         serverAddr,
+		connected:          connected,
+		batteryCapacityKWh: batteryCapacityKWh,
 	}
 }
 
@@ -52,7 +54,7 @@ func (h *StatusHandler) GetConnectors(w http.ResponseWriter, r *http.Request) {
 	station := h.stationService.GetStation()
 	connectors := make([]dto.ConnectorResponse, len(station.ChargerPoints))
 	for i, point := range station.ChargerPoints {
-		connectors[i] = dto.NewConnectorResponse(point)
+		connectors[i] = dto.NewConnectorResponse(point, h.batteryCapacityKWh)
 	}
 	writeJSON(w, http.StatusOK, connectors)
 }
@@ -72,7 +74,7 @@ func (h *StatusHandler) GetConnector(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, dto.NewConnectorResponse(point))
+	writeJSON(w, http.StatusOK, dto.NewConnectorResponse(point, h.batteryCapacityKWh))
 }
 
 // GetTransactions returns all active transactions
