@@ -133,6 +133,12 @@ func TestDeriveStageFailurePropagation(t *testing.T) {
 			inputRun:      entities.PipelineRun{Variant: entities.ActionStartInvalidAuth, StartDispatched: true},
 		},
 		{
+			// OCPI rejects inside the envelope, so a 2xx proves nothing.
+			name:          "platform rejected inside an http 200 envelope",
+			inputEvidence: pipelineEvidence{CommandSent: true, CommandStatus: 200, CommandOCPIStatus: 2001},
+			inputCharger:  chargerSnapshot{Found: true, Status: entities.StatusAvailable, CablePlugged: true},
+		},
+		{
 			name:          "command result came back rejected",
 			inputEvidence: pipelineEvidence{CommandSent: true, CommandStatus: 200, CommandResult: "REJECTED"},
 			inputCharger:  chargerSnapshot{Found: true, Status: entities.StatusPreparing, CablePlugged: true},
@@ -362,8 +368,23 @@ func TestBuildHops(t *testing.T) {
 			},
 		},
 		{
+			// The regression this guards: HTTP 200 with an OCPI rejection.
+			name: "an envelope rejection reddens the ocpi hop despite the 200",
+			inputEvidence: pipelineEvidence{
+				CommandSent: true, CommandStatus: 200,
+				CommandOCPIStatus: 2001, CommandOCPIMessage: "Unknown EVSE",
+			},
+			inputCharger: chargerSnapshot{Found: true, Status: entities.StatusAvailable, CablePlugged: true},
+			inputStage:   entities.StageFailed,
+			expectedStatuses: map[entities.PipelineHopID]entities.PipelineHopStatus{
+				entities.HopPartner:  entities.HopConfirmed,
+				entities.HopOCPI:     entities.HopFailed,
+				entities.HopPlatform: entities.HopPending,
+			},
+		},
+		{
 			name:          "accepted command lights the first three hops",
-			inputEvidence: pipelineEvidence{CommandSent: true, CommandStatus: 200, CommandResult: "ACCEPTED"},
+			inputEvidence: pipelineEvidence{CommandSent: true, CommandStatus: 200, CommandOCPIStatus: 1000, CommandResult: "ACCEPTED"},
 			inputCharger:  chargerSnapshot{Found: true, Status: entities.StatusCharging, CablePlugged: true},
 			inputStage:    entities.StageCharging,
 			expectedStatuses: map[entities.PipelineHopID]entities.PipelineHopStatus{
@@ -440,6 +461,38 @@ func TestBuildHops(t *testing.T) {
 				if hop.Status == entities.HopFailed && hop.Error == "" {
 					t.Errorf("hop %q is red but carries no error", id)
 				}
+			}
+		})
+	}
+}
+
+// TestExtractEnvelopeStatus covers the parser the OCPI hop depends on. A body
+// without a usable envelope must read as "no verdict", never as a rejection.
+func TestExtractEnvelopeStatus(t *testing.T) {
+	tests := []struct {
+		name            string
+		inputBody       string
+		expectedCode    int
+		expectedMessage string
+	}{
+		{name: "success envelope", inputBody: `{"status_code":1000,"status_message":"Success"}`, expectedCode: 1000, expectedMessage: "Success"},
+		{name: "rejection envelope", inputBody: `{"status_code":2001,"status_message":"Unknown EVSE"}`, expectedCode: 2001, expectedMessage: "Unknown EVSE"},
+		// Zero is not a real OCPI status, so it collapses into "no verdict".
+		{name: "explicit zero reads as no verdict", inputBody: `{"status_code":0}`},
+		{name: "no envelope at all", inputBody: `{"foo":"bar"}`},
+		{name: "not json", inputBody: `<html>502</html>`},
+		{name: "empty body", inputBody: ``},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actualCode, actualMessage := ExtractEnvelopeStatus([]byte(test.inputBody))
+
+			if actualCode != test.expectedCode {
+				t.Errorf("status code = %d, expected %d", actualCode, test.expectedCode)
+			}
+			if actualMessage != test.expectedMessage {
+				t.Errorf("status message = %q, expected %q", actualMessage, test.expectedMessage)
 			}
 		})
 	}

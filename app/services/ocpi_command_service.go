@@ -38,6 +38,11 @@ type CommandDispatchResult struct {
 	StatusCode  int                 `json:"statusCode,omitempty"`
 	Response    json.RawMessage     `json:"response,omitempty"`
 	Event       *entities.OCPIEvent `json:"event,omitempty"`
+
+	// OCPIStatusCode is the envelope verdict, which decides success
+	// independently of the HTTP status.
+	OCPIStatusCode    int    `json:"ocpiStatusCode,omitempty"`
+	OCPIStatusMessage string `json:"ocpiStatusMessage,omitempty"`
 }
 
 // StartSessionOptions carries the target of a START_SESSION and the knobs used
@@ -164,6 +169,14 @@ func (s *OCPICommandService) dispatch(
 	} else {
 		result.Response, _ = json.Marshal(string(response.Body))
 	}
+
+	// The HTTP status does not settle an OCPI call: a platform can reject a
+	// command with 2001 inside an envelope served as HTTP 200, so the verdict
+	// is persisted alongside the reply for anything reading the event feed.
+	event.ResponseBody = result.Response
+	event.OCPIStatusCode, event.OCPIStatusMessage = ExtractEnvelopeStatus(response.Body)
+	result.OCPIStatusCode = event.OCPIStatusCode
+	result.OCPIStatusMessage = event.OCPIStatusMessage
 
 	recorded := s.events.Record(event)
 	result.Event = &recorded

@@ -102,6 +102,12 @@ Sim.renderEvent = function (event) {
 
     const facts = [];
     if (event.statusCode) facts.push('HTTP ' + event.statusCode);
+    // An OCPI rejection rides inside a 200, so the envelope verdict is shown
+    // next to the HTTP status rather than hidden in the payload.
+    if (event.ocpiStatusCode) {
+        facts.push('status_code ' + event.ocpiStatusCode +
+            (event.ocpiStatusMessage ? ' (' + event.ocpiStatusMessage + ')' : ''));
+    }
     if (event.sessionId) facts.push('session ' + event.sessionId);
     if (event.commandUid) facts.push('uid ' + event.commandUid);
     if (event.contractId) facts.push('contract_id ' + event.contractId);
@@ -113,14 +119,22 @@ Sim.renderEvent = function (event) {
     }
 
     if (event.body !== undefined && event.body !== null) {
-        const details = document.createElement('details');
-        details.appendChild(Sim.element('summary', null, 'Ver payload'));
-        details.appendChild(Sim.element('pre', null, JSON.stringify(event.body, null, 2)));
-        container.appendChild(details);
+        container.appendChild(payloadDetails('Ver payload', event.body));
+    }
+    if (event.responseBody !== undefined && event.responseBody !== null) {
+        container.appendChild(payloadDetails('Ver resposta da plataforma', event.responseBody));
     }
 
     return container;
 };
+
+// payloadDetails renders a collapsible JSON block.
+function payloadDetails(label, payload) {
+    const details = document.createElement('details');
+    details.appendChild(Sim.element('summary', null, label));
+    details.appendChild(Sim.element('pre', null, JSON.stringify(payload, null, 2)));
+    return details;
+}
 
 // ---------- Tabs ----------
 

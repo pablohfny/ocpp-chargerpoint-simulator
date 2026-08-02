@@ -48,6 +48,16 @@ type OCPIEvent struct {
 	// StatusCode is the HTTP status we replied with (inbound) or received
 	// (outbound).
 	StatusCode int `json:"statusCode,omitempty"`
+	// ResponseBody is what the platform answered an outbound command with. It
+	// is kept because the HTTP status alone does not decide success: OCPI
+	// carries its own verdict in the envelope.
+	ResponseBody json.RawMessage `json:"responseBody,omitempty"`
+	// OCPIStatusCode is the envelope's status_code from that response, where
+	// 1000 is success and anything else is a rejection served over HTTP 200.
+	// Zero means the reply carried no parseable envelope.
+	OCPIStatusCode int `json:"ocpiStatusCode,omitempty"`
+	// OCPIStatusMessage is the envelope's human readable status_message.
+	OCPIStatusMessage string `json:"ocpiStatusMessage,omitempty"`
 
 	// EchoOK reports whether the cdr_token echoed back by our platform matches
 	// the token we sent in the originating command. Nil when there is nothing

@@ -13,20 +13,31 @@ type pipelineEvidence struct {
 	CommandSent   bool
 	CommandError  string
 	CommandStatus int
-	CommandResult string
-	SessionSeen   bool
-	SessionID     string
-	CDRSeen       bool
-	EchoMismatch  []string
-	AuthFailed    bool
+	// CommandOCPIStatus is the envelope verdict of the command response. Zero
+	// means the reply carried no envelope, which is not by itself a failure.
+	CommandOCPIStatus  int
+	CommandOCPIMessage string
+	CommandResult      string
+	SessionSeen        bool
+	SessionID          string
+	CDRSeen            bool
+	EchoMismatch       []string
+	AuthFailed         bool
 }
 
 // failed reports whether the evidence already condemns the run.
 func (e pipelineEvidence) failed() bool {
 	return e.CommandError != "" ||
 		e.CommandStatus >= 400 ||
+		e.rejectedByEnvelope() ||
 		(e.CommandResult != "" && e.CommandResult != commandResultAccepted) ||
 		len(e.EchoMismatch) > 0
+}
+
+// rejectedByEnvelope reports an OCPI rejection served over a 2xx, which is the
+// failure the HTTP status alone would hide.
+func (e pipelineEvidence) rejectedByEnvelope() bool {
+	return e.CommandOCPIStatus != 0 && e.CommandOCPIStatus != entities.OCPIStatusSuccess
 }
 
 // commandResultAccepted is the only CommandResult that keeps a run alive.
@@ -52,6 +63,8 @@ func collectEvidence(events []entities.OCPIEvent) pipelineEvidence {
 			evidence.CommandSent = true
 			evidence.CommandError = event.Error
 			evidence.CommandStatus = event.StatusCode
+			evidence.CommandOCPIStatus = event.OCPIStatusCode
+			evidence.CommandOCPIMessage = event.OCPIStatusMessage
 		case entities.OCPIEventCommandResult:
 			if result := ExtractCommandResult(event.Body); result != "" {
 				evidence.CommandResult = strings.ToUpper(result)
@@ -184,7 +197,10 @@ func partnerHop(evidence pipelineEvidence, run entities.PipelineRun) entities.Pi
 	return hop
 }
 
-// ocpiHop reports how our ocpi-service replied to the command.
+// ocpiHop reports how our ocpi-service replied to the command. A green hop
+// needs both a 2xx and an accepting envelope: OCPI rejects with status_code
+// 2001 inside an HTTP 200, so trusting the HTTP status alone would paint a
+// refused command green.
 func ocpiHop(evidence pipelineEvidence, expected bool) entities.PipelineHop {
 	hop := entities.PipelineHop{ID: entities.HopOCPI, Label: "OCPI"}
 
@@ -192,14 +208,37 @@ func ocpiHop(evidence pipelineEvidence, expected bool) entities.PipelineHop {
 	case evidence.CommandStatus == 0:
 		hop.Status = entities.HopPending
 	case evidence.CommandStatus >= 400:
+		// The HTTP status is the whole story here, so the envelope only adds
+		// its message when the platform bothered to explain itself.
 		hop.Status = entities.HopFailed
-		hop.Error = fmt.Sprintf("HTTP %d", evidence.CommandStatus)
+		hop.Error = fmt.Sprintf("HTTP %d%s", evidence.CommandStatus, messageSuffix(evidence.CommandOCPIMessage))
+		hop.Expected = expected
+	case evidence.rejectedByEnvelope():
+		hop.Status = entities.HopFailed
+		hop.Error = fmt.Sprintf("HTTP %d mas status_code %d%s",
+			evidence.CommandStatus, evidence.CommandOCPIStatus, messageSuffix(evidence.CommandOCPIMessage))
 		hop.Expected = expected
 	default:
 		hop.Status = entities.HopConfirmed
-		hop.Detail = fmt.Sprintf("HTTP %d", evidence.CommandStatus)
+		hop.Detail = fmt.Sprintf("HTTP %d%s", evidence.CommandStatus, envelopeSuffix(evidence))
 	}
 	return hop
+}
+
+// envelopeSuffix appends the OCPI verdict when the platform sent one.
+func envelopeSuffix(evidence pipelineEvidence) string {
+	if evidence.CommandOCPIStatus == 0 {
+		return ""
+	}
+	return fmt.Sprintf(" · status_code %d", evidence.CommandOCPIStatus)
+}
+
+// messageSuffix renders the platform's status_message when it explains itself.
+func messageSuffix(message string) string {
+	if strings.TrimSpace(message) == "" {
+		return ""
+	}
+	return " (" + message + ")"
 }
 
 // platformHop reports the async verdict our platform pushed back.

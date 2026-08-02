@@ -15,6 +15,27 @@ type ocpiPayload struct {
 	Result    string             `json:"result"`
 }
 
+// ocpiEnvelopeStatus is the verdict wrapper every OCPI response carries.
+type ocpiEnvelopeStatus struct {
+	StatusCode    *int   `json:"status_code"`
+	StatusMessage string `json:"status_message"`
+}
+
+// ExtractEnvelopeStatus pulls the OCPI verdict out of a response body. A
+// missing or unparseable envelope yields zero, which callers must read as "no
+// verdict" rather than as a failure: not every error path returns an envelope.
+func ExtractEnvelopeStatus(body []byte) (statusCode int, statusMessage string) {
+	if len(body) == 0 {
+		return 0, ""
+	}
+
+	var envelope ocpiEnvelopeStatus
+	if err := json.Unmarshal(body, &envelope); err != nil || envelope.StatusCode == nil {
+		return 0, ""
+	}
+	return *envelope.StatusCode, envelope.StatusMessage
+}
+
 // ExtractCommandResult pulls the `result` of an async CommandResult callback
 // (ACCEPTED, REJECTED, TIMEOUT, UNKNOWN_SESSION). An unparseable body yields an
 // empty string, which the pipeline reads as "no verdict yet".

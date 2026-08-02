@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"EV-Client-Simulator/app/domain/abstracts"
@@ -16,7 +17,9 @@ type mockPipelineCommandClient struct {
 	lastToken   string
 	lastPayload interface{}
 	status      int
-	err         error
+	// body overrides the OCPI envelope the fake platform answers with.
+	body []byte
+	err  error
 }
 
 func (c *mockPipelineCommandClient) PostCommand(url, token string, payload interface{}) (*abstracts.OCPICommandResponse, error) {
@@ -31,7 +34,12 @@ func (c *mockPipelineCommandClient) PostCommand(url, token string, payload inter
 	if status == 0 {
 		status = 200
 	}
-	return &abstracts.OCPICommandResponse{StatusCode: status, Body: []byte(`{"status_code":1000}`)}, nil
+
+	body := c.body
+	if body == nil {
+		body = []byte(`{"status_code":1000}`)
+	}
+	return &abstracts.OCPICommandResponse{StatusCode: status, Body: body}, nil
 }
 
 type pipelineTestEnv struct {
@@ -235,6 +243,67 @@ func TestPipelineInvalidTokenVariant(t *testing.T) {
 	}
 	if !ocpi.Expected {
 		t.Errorf("ocpi hop Expected = false, expected the provoked failure to be flagged")
+	}
+}
+
+// TestPipelineEnvelopeRejectionOverHTTP200 is the false green this cockpit must
+// never show: OCPI rejects a command with status_code 2001 inside an HTTP 200,
+// so the hop has to read the envelope, not just the status line.
+func TestPipelineEnvelopeRejectionOverHTTP200(t *testing.T) {
+	mockEnv := newPipelineTestEnv(t)
+	mockEnv.client.body = []byte(`{"status_code":2001,"status_message":"Unknown EVSE"}`)
+	mockEnv.arm(t)
+	mockEnv.execute(t, entities.ActionPlug)
+
+	actualState := mockEnv.execute(t, entities.ActionStartPartner)
+
+	if actualState.Stage != entities.StageFailed {
+		t.Fatalf("Stage = %q, expected %q on an OCPI rejection served over 200", actualState.Stage, entities.StageFailed)
+	}
+
+	ocpi := findHop(t, actualState.Hops, entities.HopOCPI)
+	if ocpi.Status != entities.HopFailed {
+		t.Fatalf("ocpi hop = %+v, expected it red despite the HTTP 200", ocpi)
+	}
+	if !strings.Contains(ocpi.Error, "2001") || !strings.Contains(ocpi.Error, "Unknown EVSE") {
+		t.Errorf("ocpi hop error = %q, expected the status_code and status_message inline", ocpi.Error)
+	}
+}
+
+// TestPipelineEnvelopeSuccessStaysGreen guards the opposite mistake: a proper
+// 1000 must not be read as a rejection.
+func TestPipelineEnvelopeSuccessStaysGreen(t *testing.T) {
+	mockEnv := newPipelineTestEnv(t)
+	mockEnv.client.body = []byte(`{"status_code":1000,"status_message":"Success","data":{"result":"ACCEPTED"}}`)
+	mockEnv.arm(t)
+	mockEnv.execute(t, entities.ActionPlug)
+
+	actualState := mockEnv.execute(t, entities.ActionStartPartner)
+
+	ocpi := findHop(t, actualState.Hops, entities.HopOCPI)
+	if ocpi.Status != entities.HopConfirmed {
+		t.Fatalf("ocpi hop = %+v, expected it green", ocpi)
+	}
+	if !strings.Contains(ocpi.Detail, "1000") {
+		t.Errorf("ocpi hop detail = %q, expected the envelope verdict to be shown", ocpi.Detail)
+	}
+}
+
+// TestPipelineBodylessReplyIsNotAFailure keeps a platform that answers without
+// an envelope from being reported as a rejection.
+func TestPipelineBodylessReplyIsNotAFailure(t *testing.T) {
+	mockEnv := newPipelineTestEnv(t)
+	mockEnv.client.body = []byte(``)
+	mockEnv.arm(t)
+	mockEnv.execute(t, entities.ActionPlug)
+
+	actualState := mockEnv.execute(t, entities.ActionStartPartner)
+
+	if actualState.Stage != entities.StageStarting {
+		t.Fatalf("Stage = %q, expected %q when there is no envelope to judge", actualState.Stage, entities.StageStarting)
+	}
+	if ocpi := findHop(t, actualState.Hops, entities.HopOCPI); ocpi.Status != entities.HopConfirmed {
+		t.Errorf("ocpi hop = %+v, expected the 2xx to stand on its own", ocpi)
 	}
 }
 
