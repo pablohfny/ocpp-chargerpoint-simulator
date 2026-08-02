@@ -1,977 +1,354 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCPP 1.6 Simulator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            min-height: 100vh;
-        }
-
-        .header {
-            background: #16213e;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #0f3460;
-        }
-
-        .header h1 {
-            font-size: 1.5rem;
-            color: #00d9ff;
-        }
-
-        .connection-status {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #ff4757;
-        }
-
-        .status-dot.connected {
-            background: #2ed573;
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            padding: 1rem;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        .panel {
-            background: #16213e;
-            border-radius: 8px;
-            padding: 1rem;
-            border: 1px solid #0f3460;
-        }
-
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #0f3460;
-        }
-
-        .panel-title {
-            font-size: 1.1rem;
-            color: #00d9ff;
-        }
-
-        .connector-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1rem;
-        }
-
-        .connector-card {
-            background: #1a1a2e;
-            border-radius: 8px;
-            padding: 1rem;
-            border: 2px solid #0f3460;
-        }
-
-        .connector-card.charging {
-            border-color: #2ed573;
-            box-shadow: 0 0 20px rgba(46, 213, 115, 0.2);
-        }
-
-        .connector-card.faulted {
-            border-color: #ff4757;
-            box-shadow: 0 0 20px rgba(255, 71, 87, 0.2);
-        }
-
-        .connector-card.reserved {
-            border-color: #ffa502;
-            box-shadow: 0 0 20px rgba(255, 165, 2, 0.2);
-        }
-
-        .connector-card.preparing {
-            border-color: #1e90ff;
-            box-shadow: 0 0 20px rgba(30, 144, 255, 0.2);
-        }
-
-        .connector-card.suspendedev, .connector-card.suspendedevse {
-            border-color: #e056fd;
-            box-shadow: 0 0 20px rgba(224, 86, 253, 0.2);
-        }
-
-        .connector-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .connector-id {
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-
-        .connector-status {
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .status-available { background: #2ed573; color: #000; }
-        .status-charging { background: #2ed573; color: #000; }
-        .status-preparing { background: #1e90ff; color: #fff; }
-        .status-finishing { background: #ffa502; color: #000; }
-        .status-reserved { background: #ffa502; color: #000; }
-        .status-unavailable { background: #747d8c; color: #fff; }
-        .status-faulted { background: #ff4757; color: #fff; }
-        .status-suspendedev { background: #e056fd; color: #fff; }
-        .status-suspendedevse { background: #be2edd; color: #fff; }
-
-        .connector-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .info-item {
-            background: #0f3460;
-            padding: 0.5rem;
-            border-radius: 4px;
-        }
-
-        .info-label {
-            font-size: 0.7rem;
-            color: #888;
-            text-transform: uppercase;
-        }
-
-        .info-value {
-            font-size: 1rem;
-            font-weight: bold;
-        }
-
-        .connector-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .btn-primary {
-            background: #00d9ff;
-            color: #000;
-        }
-
-        .btn-success {
-            background: #2ed573;
-            color: #000;
-        }
-
-        .btn-danger {
-            background: #ff4757;
-            color: #fff;
-        }
-
-        .btn-warning {
-            background: #ffa502;
-            color: #000;
-        }
-
-        .btn-secondary {
-            background: #747d8c;
-            color: #fff;
-        }
-
-        .btn-small {
-            padding: 0.3rem 0.6rem;
-            font-size: 0.7rem;
-        }
-
-        .logs-container {
-            grid-column: 1 / -1;
-            max-height: 300px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .logs-list {
-            flex: 1;
-            overflow-y: auto;
-            background: #0a0a15;
-            border-radius: 4px;
-            padding: 0.5rem;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 0.75rem;
-        }
-
-        .log-entry {
-            padding: 0.25rem 0.5rem;
-            border-bottom: 1px solid #1a1a2e;
-            display: flex;
-            gap: 1rem;
-        }
-
-        .log-entry:hover {
-            background: #1a1a2e;
-        }
-
-        .log-time {
-            color: #888;
-            min-width: 80px;
-        }
-
-        .log-direction {
-            min-width: 20px;
-        }
-
-        .log-direction.incoming {
-            color: #2ed573;
-        }
-
-        .log-direction.outgoing {
-            color: #00d9ff;
-        }
-
-        .log-action {
-            color: #ffa502;
-            min-width: 180px;
-        }
-
-        .log-payload {
-            color: #888;
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .config-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0.5rem;
-        }
-
-        .config-item {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .config-item label {
-            font-size: 0.75rem;
-            color: #888;
-        }
-
-        .config-item input {
-            padding: 0.5rem;
-            border: 1px solid #0f3460;
-            border-radius: 4px;
-            background: #1a1a2e;
-            color: #eee;
-            font-size: 0.9rem;
-        }
-
-        .config-item input:focus {
-            outline: none;
-            border-color: #00d9ff;
-        }
-
-        .station-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .simulation-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 0.5rem;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .tab {
-            padding: 0.5rem 1rem;
-            background: #0f3460;
-            border: none;
-            border-radius: 4px;
-            color: #888;
-            cursor: pointer;
-            font-size: 0.85rem;
-        }
-
-        .tab.active {
-            background: #00d9ff;
-            color: #000;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .fault-select {
-            padding: 0.5rem;
-            border: 1px solid #0f3460;
-            border-radius: 4px;
-            background: #1a1a2e;
-            color: #eee;
-            font-size: 0.8rem;
-            width: 100%;
-            margin-bottom: 0.5rem;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: #16213e;
-            padding: 2rem;
-            border-radius: 8px;
-            min-width: 400px;
-            max-width: 90%;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: #888;
-            font-size: 1.5rem;
-            cursor: pointer;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #888;
-        }
-
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #0f3460;
-            border-radius: 4px;
-            background: #1a1a2e;
-            color: #eee;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <title>Simulador NuCharge</title>
+    <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-    <div class="header">
-        <h1>OCPP 1.6 Simulator</h1>
-        <div class="connection-status">
-            <span id="station-id">-</span>
-            <span>&rarr;</span>
-            <span id="server-addr">-</span>
-            <div class="status-dot" id="connection-dot"></div>
-            <span id="connection-text">Disconnected</span>
+    <div class="topbar">
+        <div class="brand">
+            <h1>Simulador NuCharge</h1>
+            <span class="brand-sub" id="stationId">carregador virtual</span>
+        </div>
+        <div class="topbar-right">
+            <div class="connection">
+                <span class="dot" id="connectionDot"></span>
+                <span id="connectionText">Desconectado</span>
+            </div>
+            <a class="topbar-link" href="/legacy">Painel legado</a>
         </div>
     </div>
 
-    <div class="container">
-        <!-- Connectors Panel -->
-        <div class="panel" style="grid-column: 1 / -1;">
-            <div class="panel-header">
-                <span class="panel-title">Connectors</span>
-                <div class="station-actions">
-                    <button class="btn btn-primary btn-small" onclick="sendBootNotification()">Boot Notification</button>
-                    <button class="btn btn-primary btn-small" onclick="sendHeartbeat()">Heartbeat</button>
-                    <button class="btn btn-warning btn-small" onclick="resetStation()">Reset Station</button>
-                    <button class="btn btn-secondary btn-small" onclick="reconnect()">Reconnect</button>
-                </div>
-            </div>
-            <div class="connector-grid" id="connectors-container">
-                <!-- Connectors will be rendered here -->
-            </div>
-        </div>
+    <nav class="tabs" id="tabs">
+        <button class="tab" data-tab="pipeline" type="button">⚡ Pipeline</button>
+        <button class="tab" data-tab="carregador" type="button">🚗 Carregador</button>
+        <button class="tab" data-tab="parceiros" type="button">🏦 Parceiros</button>
+        <button class="tab" data-tab="config" type="button">⚙️ Config</button>
+    </nav>
 
-        <!-- Configuration Panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Configuration</span>
-                <button class="btn btn-primary btn-small" onclick="loadConfig()">Refresh</button>
-            </div>
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('ocpp-config')">OCPP Config</button>
-                <button class="tab" onclick="switchTab('simulation-config')">Simulation</button>
-            </div>
-            <div id="ocpp-config" class="tab-content active">
-                <div class="config-grid" id="ocpp-config-grid">
-                    <!-- OCPP config will be rendered here -->
+    <main>
+        <!-- ============ Pipeline ============ -->
+        <section class="panel-view" id="view-pipeline" hidden>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Contexto do teste</span>
+                    <span class="hint" id="contextSummary"></span>
+                </div>
+                <div class="panel-body">
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="contextPartner">Parceiro</label>
+                            <select id="contextPartner"></select>
+                        </div>
+                        <div class="field">
+                            <label for="contextLocation">Location ID</label>
+                            <input id="contextLocation" placeholder="LOC-1">
+                        </div>
+                        <div class="field">
+                            <label for="contextEvse">EVSE UID</label>
+                            <input id="contextEvse" placeholder="EVSE-1">
+                        </div>
+                        <div class="field">
+                            <label for="contextConnector">Connector ID (OCPI)</label>
+                            <input id="contextConnector" placeholder="1">
+                        </div>
+                        <div class="field">
+                            <label for="contextOcppConnector">Conector OCPP</label>
+                            <input id="contextOcppConnector" type="number" min="1" value="1">
+                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button class="btn btn-primary" id="armContextButton" type="button">Armar contexto</button>
+                    </div>
+                    <div class="message" id="contextMessage"></div>
                 </div>
             </div>
-            <div id="simulation-config" class="tab-content">
-                <h4 style="margin-bottom: 0.5rem; color: #888;">Delays (ms)</h4>
-                <div class="simulation-grid" id="delays-grid">
-                    <!-- Delays will be rendered here -->
-                </div>
-                <h4 style="margin: 1rem 0 0.5rem; color: #888;">Failure Rates (0-1)</h4>
-                <div class="simulation-grid" id="failures-grid">
-                    <!-- Failure rates will be rendered here -->
-                </div>
-                <h4 style="margin: 1rem 0 0.5rem; color: #888;">Transaction Settings</h4>
-                <div class="simulation-grid" id="transaction-grid">
-                    <!-- Transaction settings will be rendered here -->
-                </div>
-                <div style="margin-top: 1rem;">
-                    <button class="btn btn-primary" onclick="saveSimulationSettings()">Save Settings</button>
-                    <button class="btn btn-secondary" onclick="resetSimulationSettings()">Reset to Defaults</button>
-                </div>
-            </div>
-        </div>
 
-        <!-- Actions Panel -->
-        <div class="panel">
-            <div class="panel-header">
-                <span class="panel-title">Quick Actions</span>
-            </div>
-            <div class="form-group">
-                <label>Select Connector</label>
-                <select id="action-connector" class="fault-select">
-                    <option value="1">Connector 1</option>
-                    <option value="2">Connector 2</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Set Fault</label>
-                <select id="fault-type" class="fault-select">
-                    <option value="NoError">No Error</option>
-                    <option value="ConnectorLockFailure">Connector Lock Failure</option>
-                    <option value="EVCommunicationError">EV Communication Error</option>
-                    <option value="GroundFailure">Ground Failure</option>
-                    <option value="HighTemperature">High Temperature</option>
-                    <option value="InternalError">Internal Error</option>
-                    <option value="OverCurrentFailure">Over Current Failure</option>
-                    <option value="OverVoltage">Over Voltage</option>
-                    <option value="PowerMeterFailure">Power Meter Failure</option>
-                    <option value="UnderVoltage">Under Voltage</option>
-                </select>
-                <button class="btn btn-danger" onclick="setFault()">Set Fault</button>
-                <button class="btn btn-success" onclick="clearFault()">Clear Fault</button>
-            </div>
-            <div class="form-group">
-                <label>Reservation</label>
-                <input type="text" id="reservation-idtag" placeholder="ID Tag" style="margin-bottom: 0.5rem;">
-                <button class="btn btn-warning" onclick="setReservation()">Reserve</button>
-                <button class="btn btn-secondary" onclick="cancelReservation()">Cancel</button>
-            </div>
-            <div class="form-group">
-                <label>Auto-Charge (idTag of your choice)</label>
-                <input type="text" id="autocharge-idtag" placeholder="ID Tag" style="margin-bottom: 0.5rem;">
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <button class="btn btn-primary btn-small" onclick="triggerAuthorize()">Authorize</button>
-                    <button class="btn btn-success btn-small" onclick="triggerStartTransaction()">Start Transaction</button>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Fluxo fim a fim</span>
+                    <span class="hint" id="pipelineCharger"></span>
+                </div>
+                <div class="panel-body">
+                    <div class="pipeline" id="pipelineHops"></div>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Trigger OCPP Messages</label>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <button class="btn btn-primary btn-small" onclick="triggerStatusNotification()">Status Notification</button>
-                    <button class="btn btn-primary btn-small" onclick="triggerMeterValues()">Meter Values</button>
-                </div>
-            </div>
-        </div>
 
-        <!-- Message Logs -->
-        <div class="panel logs-container">
-            <div class="panel-header">
-                <span class="panel-title">Message Logs</span>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Ações desta etapa</span>
+                </div>
+                <div class="panel-body">
+                    <div class="stage-banner" id="stageBanner">
+                        <span class="stage-name" id="stageName">Sem contexto</span>
+                        <span class="stage-hint" id="stageHint"></span>
+                    </div>
+                    <div class="action-bar" id="actionBar"></div>
+                    <div class="message" id="actionMessage"></div>
+                    <div class="run-facts" id="runFacts"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Eventos da rodada</span>
+                </div>
+                <div class="panel-body">
+                    <div class="event-list compact" id="pipelineEvents">
+                        <div class="empty-state">Arme o contexto para acompanhar os eventos.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ Carregador ============ -->
+        <section class="panel-view" id="view-carregador" hidden>
+            <div class="grid-2">
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Carregador virtual</span>
+                        <span class="hint" id="chargerConnectorLabel">Conector 1</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="battery">
+                            <div class="ring">
+                                <svg viewBox="0 0 120 120">
+                                    <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+                                    <circle class="ring-value" id="ringValue" cx="60" cy="60" r="52"
+                                            stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+                                </svg>
+                                <div class="ring-readout">
+                                    <div class="ring-percent" id="batteryPercent">--<span>%</span></div>
+                                    <div class="ring-caption">Bateria</div>
+                                </div>
+                            </div>
+                            <div class="status-pill" id="chargerStatus">--</div>
+                        </div>
+
+                        <div class="stat-grid" style="margin-top: 1rem">
+                            <div class="stat">
+                                <div class="stat-label">Energia</div>
+                                <div class="stat-value" id="chargerEnergy">0,00 kWh</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Transação</div>
+                                <div class="stat-value" id="chargerTransaction">--</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Cabo</div>
+                                <div class="stat-value" id="chargerCable">--</div>
+                            </div>
+                        </div>
+
+                        <div class="button-row">
+                            <button class="btn btn-success" id="chargerPrimary" type="button" disabled>Carregando...</button>
+                        </div>
+                        <div class="message" id="chargerMessage"></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Controles OCPP</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="control-group">
+                            <h3>Cabo e recarga</h3>
+                            <div class="action-bar">
+                                <button class="btn" data-charger-action="plug" type="button">Plugar</button>
+                                <button class="btn" data-charger-action="unplug" type="button">Desplugar</button>
+                                <button class="btn" data-charger-action="stop" type="button">Parar transação</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <h3>Pausas</h3>
+                            <div class="action-bar">
+                                <button class="btn" data-charger-action="suspend-ev" type="button">Suspender EV</button>
+                                <button class="btn" data-charger-action="suspend-evse" type="button">Suspender EVSE</button>
+                                <button class="btn" data-charger-action="resume" type="button">Retomar</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <h3>Falhas e disponibilidade</h3>
+                            <div class="action-bar">
+                                <button class="btn btn-warn" data-charger-action="fault" type="button">Injetar falha</button>
+                                <button class="btn" data-charger-action="clear-fault" type="button">Limpar falha</button>
+                                <button class="btn" data-charger-action="unavailable" type="button">Indisponível</button>
+                                <button class="btn" data-charger-action="available" type="button">Disponível</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <h3>Mensagens avulsas</h3>
+                            <div class="action-bar">
+                                <button class="btn" data-charger-trigger="meter-values" type="button">Enviar meter</button>
+                                <button class="btn" data-charger-trigger="status-notification" type="button">StatusNotification</button>
+                                <button class="btn" data-charger-trigger="heartbeat" type="button">Heartbeat</button>
+                                <button class="btn" data-charger-trigger="boot-notification" type="button">BootNotification</button>
+                            </div>
+                        </div>
+                        <div class="message" id="chargerControlMessage"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ Parceiros ============ -->
+        <section class="panel-view" id="view-parceiros" hidden>
+            <div class="grid-2">
                 <div>
-                    <button class="btn btn-secondary btn-small" onclick="clearLogs()">Clear</button>
-                    <button class="btn btn-primary btn-small" onclick="loadLogs()">Refresh</button>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Parceiros OCPI</span>
+                            <button class="btn btn-small" id="newPartnerButton" type="button">Novo</button>
+                        </div>
+                        <div class="panel-body">
+                            <div class="partner-list" id="partnerList"></div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title" id="partnerFormTitle">Novo parceiro</span>
+                        </div>
+                        <div class="panel-body">
+                            <form id="partnerForm">
+                                <div class="form-grid">
+                                    <div class="field">
+                                        <label for="fieldSlug">Slug</label>
+                                        <input id="fieldSlug" name="slug" placeholder="nayax-sim" required>
+                                    </div>
+                                    <div class="field">
+                                        <label for="fieldName">Nome</label>
+                                        <input id="fieldName" name="name" placeholder="Nayax" required>
+                                    </div>
+                                    <div class="field">
+                                        <label for="fieldPartyId">Party ID</label>
+                                        <input id="fieldPartyId" name="partyId" maxlength="3" placeholder="NYX" required>
+                                    </div>
+                                    <div class="field">
+                                        <label for="fieldCountryCode">País</label>
+                                        <input id="fieldCountryCode" name="countryCode" maxlength="2" placeholder="BR" required>
+                                    </div>
+                                    <div class="field full">
+                                        <label for="fieldTokenToCallUs">Token para chamar a plataforma</label>
+                                        <input id="fieldTokenToCallUs" name="tokenToCallUs" placeholder="token_b">
+                                        <span class="hint">Enviado por nós ao comandar o ocpi-service.</span>
+                                    </div>
+                                    <div class="field full">
+                                        <label for="fieldTokenExpected">Token esperado da plataforma</label>
+                                        <input id="fieldTokenExpected" name="tokenExpected" placeholder="token_a" required>
+                                        <span class="hint">Exigido nos pushes que a plataforma envia para nós.</span>
+                                    </div>
+                                    <div class="field full">
+                                        <label for="fieldOcpiBaseUrl">URL do OCPI da plataforma</label>
+                                        <input id="fieldOcpiBaseUrl" name="ocpiBaseUrl" placeholder="https://ocpi-dev.nucharge.com.br">
+                                    </div>
+                                    <div class="field full">
+                                        <label for="fieldPublicBaseUrl">URL pública deste simulador</label>
+                                        <input id="fieldPublicBaseUrl" name="publicBaseUrl" placeholder="https://sim-dev.nucharge.com.br">
+                                    </div>
+                                </div>
+                                <div class="button-row">
+                                    <button type="submit" class="btn btn-success" id="savePartnerButton">Salvar</button>
+                                    <button type="button" class="btn" id="cancelPartnerButton">Cancelar</button>
+                                    <button type="button" class="btn btn-danger" id="deletePartnerButton" style="display:none">Excluir</button>
+                                </div>
+                                <div class="message" id="partnerFormMessage"></div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title" id="partnerCommandTitle">Comandos</span>
+                        </div>
+                        <div class="panel-body" id="partnerCommandBody">
+                            <div class="empty-state">Selecione um parceiro para enviar comandos.</div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Eventos</span>
+                            <button class="btn btn-small" id="clearEventsButton" type="button" disabled>Limpar</button>
+                        </div>
+                        <div class="panel-body">
+                            <div class="event-list" id="partnerEvents">
+                                <div class="empty-state">Nenhum evento ainda.</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="logs-list" id="logs-container">
-                <!-- Logs will be rendered here -->
+        </section>
+
+        <!-- ============ Config ============ -->
+        <section class="panel-view" id="view-config" hidden>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Configuração editável</span>
+                    <span class="hint">Salvo em arquivo — vence as variáveis de ambiente no próximo boot.</span>
+                </div>
+                <div class="panel-body">
+                    <form id="settingsForm">
+                        <div class="form-grid">
+                            <div class="field full">
+                                <label for="settingOcpiBaseUrl">URL do OCPI da plataforma</label>
+                                <input id="settingOcpiBaseUrl" placeholder="https://ocpi-dev.nucharge.com.br" required>
+                                <span class="hint">Para onde os comandos START/STOP_SESSION são enviados.</span>
+                            </div>
+                            <div class="field full">
+                                <label for="settingPublicBaseUrl">URL pública deste simulador</label>
+                                <input id="settingPublicBaseUrl" placeholder="https://sim-dev.nucharge.com.br" required>
+                                <span class="hint">Base do response_url e dos receivers entregues à plataforma.</span>
+                            </div>
+                            <div class="field">
+                                <label for="settingLocation">Location ID padrão</label>
+                                <input id="settingLocation" placeholder="LOC-1">
+                            </div>
+                            <div class="field">
+                                <label for="settingEvse">EVSE UID padrão</label>
+                                <input id="settingEvse" placeholder="EVSE-1">
+                            </div>
+                            <div class="field">
+                                <label for="settingConnector">Connector ID padrão</label>
+                                <input id="settingConnector" placeholder="1">
+                            </div>
+                            <div class="field">
+                                <label for="settingBattery">Capacidade da bateria (kWh)</label>
+                                <input id="settingBattery" type="number" min="1" step="1" required>
+                            </div>
+                        </div>
+                        <div class="button-row">
+                            <button type="submit" class="btn btn-primary" id="saveSettingsButton">Salvar configuração</button>
+                            <button type="button" class="btn" id="reloadSettingsButton">Recarregar</button>
+                        </div>
+                        <div class="message" id="settingsMessage"></div>
+                    </form>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <script>
-        const API_BASE = '/api/v1';
-        let refreshInterval;
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Fixo no boot</span>
+                    <span class="hint">Definido por flag ou variável de ambiente; exige reiniciar o processo.</span>
+                </div>
+                <div class="panel-body">
+                    <div class="readonly-list" id="runtimeList"></div>
+                </div>
+            </div>
+        </section>
+    </main>
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            loadStatus();
-            loadConnectors();
-            loadConfig();
-            loadLogs();
-
-            // Auto-refresh every 2 seconds
-            refreshInterval = setInterval(() => {
-                loadStatus();
-                loadConnectors();
-                loadLogs();
-            }, 2000);
-        });
-
-        // API Helpers
-        async function apiGet(endpoint) {
-            const response = await fetch(API_BASE + endpoint);
-            return response.json();
-        }
-
-        async function apiPost(endpoint, data = {}) {
-            const response = await fetch(API_BASE + endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            return response.json();
-        }
-
-        async function apiPut(endpoint, data = {}) {
-            const response = await fetch(API_BASE + endpoint, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            return response.json();
-        }
-
-        async function apiDelete(endpoint) {
-            const response = await fetch(API_BASE + endpoint, { method: 'DELETE' });
-            return response.json();
-        }
-
-        // Load Functions
-        async function loadStatus() {
-            try {
-                const status = await apiGet('/status');
-                const connection = await apiGet('/status/connection');
-
-                document.getElementById('station-id').textContent = status.stationId || '-';
-                document.getElementById('server-addr').textContent = connection.serverAddr || '-';
-
-                const dot = document.getElementById('connection-dot');
-                const text = document.getElementById('connection-text');
-
-                if (connection.connected) {
-                    dot.classList.add('connected');
-                    text.textContent = 'Connected';
-                } else {
-                    dot.classList.remove('connected');
-                    text.textContent = 'Disconnected';
-                }
-            } catch (e) {
-                console.error('Failed to load status:', e);
-            }
-        }
-
-        async function loadConnectors() {
-            try {
-                const connectors = await apiGet('/status/connectors');
-                const container = document.getElementById('connectors-container');
-
-                container.innerHTML = connectors.map(c => `
-                    <div class="connector-card ${c.status.toLowerCase()}">
-                        <div class="connector-header">
-                            <span class="connector-id">Connector ${c.id}</span>
-                            <span class="connector-status status-${c.status.toLowerCase()}">${c.status}</span>
-                        </div>
-                        <div class="connector-info">
-                            <div class="info-item">
-                                <span class="info-label">Error Code</span>
-                                <span class="info-value">${c.errorCode}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Transaction</span>
-                                <span class="info-value">${c.currentTransaction || '-'}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Meter (Wh)</span>
-                                <span class="info-value">${c.meterValue.toFixed(2)}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">SoC</span>
-                                <span class="info-value">${c.soc}%</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Cable</span>
-                                <span class="info-value">${c.cablePlugged ? 'Plugged' : 'Unplugged'}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">ID Tag</span>
-                                <span class="info-value">${c.currentIdTag || '-'}</span>
-                            </div>
-                        </div>
-                        <div class="connector-actions">
-                            <button class="btn btn-primary btn-small" onclick="plugCable(${c.id})">Plug</button>
-                            <button class="btn btn-secondary btn-small" onclick="unplugCable(${c.id})">Unplug</button>
-                            <button class="btn btn-primary btn-small" onclick="setPreparing(${c.id})">Preparing</button>
-                            <button class="btn btn-success btn-small" onclick="startCharging(${c.id})">Start</button>
-                            <button class="btn btn-danger btn-small" onclick="stopCharging(${c.id})">Stop</button>
-                            <button class="btn btn-warning btn-small" onclick="suspendEV(${c.id})">Suspend EV</button>
-                            <button class="btn btn-warning btn-small" onclick="suspendEVSE(${c.id})">Suspend EVSE</button>
-                            <button class="btn btn-success btn-small" onclick="resumeCharging(${c.id})">Resume</button>
-                            <button class="btn btn-warning btn-small" onclick="setUnavailable(${c.id})">Unavail</button>
-                            <button class="btn btn-success btn-small" onclick="setAvailable(${c.id})">Avail</button>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (e) {
-                console.error('Failed to load connectors:', e);
-            }
-        }
-
-        async function loadConfig() {
-            try {
-                // Load OCPP config
-                const ocppConfig = await apiGet('/config/ocpp');
-                const ocppGrid = document.getElementById('ocpp-config-grid');
-
-                ocppGrid.innerHTML = ocppConfig.map(c => `
-                    <div class="config-item">
-                        <label>${c.key} ${c.readonly ? '(readonly)' : ''}</label>
-                        <input type="text" value="${c.value}"
-                               ${c.readonly ? 'disabled' : ''}
-                               onchange="updateOcppConfig('${c.key}', this.value)">
-                    </div>
-                `).join('');
-
-                // Load simulation config
-                const simConfig = await apiGet('/config/simulation');
-
-                const delaysGrid = document.getElementById('delays-grid');
-                delaysGrid.innerHTML = Object.entries(simConfig.delays).map(([key, value]) => `
-                    <div class="config-item">
-                        <label>${key.replace('DelayMs', '').replace(/([A-Z])/g, ' $1').trim()}</label>
-                        <input type="number" id="delay-${key}" value="${value}">
-                    </div>
-                `).join('');
-
-                const failuresGrid = document.getElementById('failures-grid');
-                failuresGrid.innerHTML = Object.entries(simConfig.failureRates).map(([key, value]) => `
-                    <div class="config-item">
-                        <label>${key.replace('FailureRate', '').replace(/([A-Z])/g, ' $1').trim()}</label>
-                        <input type="number" step="0.1" min="0" max="1" id="failure-${key}" value="${value}">
-                    </div>
-                `).join('');
-
-                // Load transaction settings
-                const tx = simConfig.transaction || {};
-                const txGrid = document.getElementById('transaction-grid');
-                txGrid.innerHTML = `
-                    <div class="config-item">
-                        <label>Meter Step (Wh)</label>
-                        <input type="number" id="tx-meterStepWh" value="${tx.meterStepWh || 1000}">
-                    </div>
-                    <div class="config-item">
-                        <label>Start SOC (%)</label>
-                        <input type="number" min="0" max="100" id="tx-startSOC" value="${tx.startSOC || 0}">
-                    </div>
-                    <div class="config-item">
-                        <label>Final SOC (%)</label>
-                        <input type="number" min="0" max="100" id="tx-finalSOC" value="${tx.finalSOC || 100}">
-                    </div>
-                    <div class="config-item">
-                        <label>Final SOC Behavior</label>
-                        <select id="tx-finalSOCBehavior" class="fault-select" style="margin:0;">
-                            <option value="Finishing" ${tx.finalSOCBehavior === 'Finishing' ? 'selected' : ''}>Finishing</option>
-                            <option value="SuspendedEV" ${tx.finalSOCBehavior === 'SuspendedEV' ? 'selected' : ''}>SuspendedEV</option>
-                        </select>
-                    </div>
-                    <div class="config-item">
-                        <label>Stop Delay (sec)</label>
-                        <input type="number" min="0" id="tx-stopDelaySec" value="${tx.stopDelaySec || 5}">
-                    </div>
-                    <div class="config-item">
-                        <label>Preparing Duration (sec)</label>
-                        <input type="number" min="0" id="tx-preparingDurationSec" value="${tx.preparingDurationSec || 30}">
-                    </div>
-                `;
-            } catch (e) {
-                console.error('Failed to load config:', e);
-            }
-        }
-
-        async function loadLogs() {
-            try {
-                const logs = await apiGet('/logs/messages?limit=50');
-                const container = document.getElementById('logs-container');
-
-                container.innerHTML = logs.entries.slice().reverse().map(log => {
-                    const time = new Date(log.timestamp).toLocaleTimeString();
-                    const direction = log.direction === 'incoming' ? '←' : '→';
-                    const payload = JSON.stringify(log.payload).substring(0, 100);
-
-                    return `
-                        <div class="log-entry">
-                            <span class="log-time">${time}</span>
-                            <span class="log-direction ${log.direction}">${direction}</span>
-                            <span class="log-action">${log.action || 'Result'}</span>
-                            <span class="log-payload">${payload}</span>
-                        </div>
-                    `;
-                }).join('');
-            } catch (e) {
-                console.error('Failed to load logs:', e);
-            }
-        }
-
-        // Connector Actions
-        async function plugCable(id) {
-            await apiPost(`/actions/connectors/${id}/plug`);
-            loadConnectors();
-        }
-
-        async function unplugCable(id) {
-            await apiPost(`/actions/connectors/${id}/unplug`);
-            loadConnectors();
-        }
-
-        async function setPreparing(id) {
-            await apiPost(`/actions/connectors/${id}/preparing`);
-            loadConnectors();
-        }
-
-        async function startCharging(id) {
-            await apiPost(`/actions/connectors/${id}/start`, { idTag: 'UI_START' });
-            loadConnectors();
-        }
-
-        async function stopCharging(id) {
-            await apiPost(`/actions/connectors/${id}/stop`);
-            loadConnectors();
-        }
-
-        async function suspendEV(id) {
-            await apiPost(`/actions/connectors/${id}/suspend-ev`);
-            loadConnectors();
-        }
-
-        async function suspendEVSE(id) {
-            await apiPost(`/actions/connectors/${id}/suspend-evse`);
-            loadConnectors();
-        }
-
-        async function resumeCharging(id) {
-            await apiPost(`/actions/connectors/${id}/resume`);
-            loadConnectors();
-        }
-
-        async function setUnavailable(id) {
-            await apiPost(`/actions/connectors/${id}/unavailable`);
-            loadConnectors();
-        }
-
-        async function setAvailable(id) {
-            await apiPost(`/actions/connectors/${id}/available`);
-            loadConnectors();
-        }
-
-        // Fault Actions
-        async function setFault() {
-            const connectorId = document.getElementById('action-connector').value;
-            const errorCode = document.getElementById('fault-type').value;
-            await apiPost(`/actions/connectors/${connectorId}/fault`, { errorCode });
-            loadConnectors();
-        }
-
-        async function clearFault() {
-            const connectorId = document.getElementById('action-connector').value;
-            await apiPost(`/actions/connectors/${connectorId}/clear-fault`);
-            loadConnectors();
-        }
-
-        // Reservation Actions
-        async function setReservation() {
-            const connectorId = document.getElementById('action-connector').value;
-            const idTag = document.getElementById('reservation-idtag').value || 'RESERVED_TAG';
-            await apiPost(`/actions/connectors/${connectorId}/reserve`, {
-                reservationId: Date.now(),
-                idTag: idTag,
-                expiryMinutes: 30
-            });
-            loadConnectors();
-        }
-
-        async function cancelReservation() {
-            const connectorId = document.getElementById('action-connector').value;
-            await apiPost(`/actions/connectors/${connectorId}/cancel-reservation`);
-            loadConnectors();
-        }
-
-        // Station Actions
-        async function sendBootNotification() {
-            await apiPost('/actions/station/boot');
-            loadLogs();
-        }
-
-        async function sendHeartbeat() {
-            await apiPost('/actions/station/heartbeat');
-            loadLogs();
-        }
-
-        async function resetStation() {
-            await apiPost('/actions/station/reset');
-            loadConnectors();
-        }
-
-        async function reconnect() {
-            await apiPost('/actions/station/reconnect');
-            loadStatus();
-        }
-
-        // OCPP Triggers
-        async function triggerStatusNotification() {
-            const connectorId = document.getElementById('action-connector').value;
-            await apiPost('/ocpp/trigger/status-notification', { connectorId: parseInt(connectorId) });
-            loadLogs();
-        }
-
-        async function triggerMeterValues() {
-            const connectorId = document.getElementById('action-connector').value;
-            await apiPost('/ocpp/trigger/meter-values', { connectorId: parseInt(connectorId) });
-            loadLogs();
-        }
-
-        async function triggerAuthorize() {
-            const connectorId = document.getElementById('action-connector').value;
-            const idTag = document.getElementById('autocharge-idtag').value.trim();
-            if (!idTag) { alert('Enter an ID Tag first'); return; }
-            await apiPost('/ocpp/trigger/authorize', { connectorId: parseInt(connectorId), idTag });
-            loadLogs();
-        }
-
-        async function triggerStartTransaction() {
-            const connectorId = document.getElementById('action-connector').value;
-            const idTag = document.getElementById('autocharge-idtag').value.trim();
-            if (!idTag) { alert('Enter an ID Tag first'); return; }
-            await apiPost('/ocpp/trigger/start-transaction', { connectorId: parseInt(connectorId), idTag });
-            loadLogs();
-        }
-
-        // Config Actions
-        async function updateOcppConfig(key, value) {
-            await apiPut(`/config/ocpp/${key}`, { value });
-        }
-
-        async function saveSimulationSettings() {
-            const delays = {};
-            document.querySelectorAll('[id^="delay-"]').forEach(input => {
-                const key = input.id.replace('delay-', '');
-                delays[key] = parseInt(input.value) || 0;
-            });
-
-            const failureRates = {};
-            document.querySelectorAll('[id^="failure-"]').forEach(input => {
-                const key = input.id.replace('failure-', '');
-                failureRates[key] = parseFloat(input.value) || 0;
-            });
-
-            const transaction = {
-                meterStepWh: parseFloat(document.getElementById('tx-meterStepWh').value) || 1000,
-                startSOC: parseInt(document.getElementById('tx-startSOC').value) || 0,
-                finalSOC: parseInt(document.getElementById('tx-finalSOC').value) || 100,
-                finalSOCBehavior: document.getElementById('tx-finalSOCBehavior').value || 'Finishing',
-                stopDelaySec: parseInt(document.getElementById('tx-stopDelaySec').value) || 5,
-                preparingDurationSec: parseInt(document.getElementById('tx-preparingDurationSec').value) || 30,
-            };
-
-            await apiPut('/config/simulation/delays', delays);
-            await apiPut('/config/simulation/failures', failureRates);
-            await apiPut('/config/simulation/transaction', transaction);
-            alert('Simulation settings saved!');
-        }
-
-        async function resetSimulationSettings() {
-            await apiPost('/config/simulation/reset');
-            loadConfig();
-        }
-
-        // Logs Actions
-        async function clearLogs() {
-            await apiDelete('/logs/messages');
-            loadLogs();
-        }
-
-        // Tab Switching
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-
-            event.target.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
-        }
-    </script>
+    <script src="/app.js"></script>
+    <script src="/pipeline.js"></script>
+    <script src="/charger.js"></script>
+    <script src="/partners.js"></script>
+    <script src="/config.js"></script>
+    <script>Sim.boot();</script>
 </body>
 </html>

@@ -294,7 +294,7 @@ func (s *PipelineService) currentState() PipelineState {
 			StageLabel: stageLabels[entities.StageIdle],
 			StageHint:  stageHints[entities.StageIdle],
 			Hops:       buildHops(pipelineEvidence{}, chargerSnapshot{}, entities.StageIdle, entities.PipelineRun{}),
-			Actions:    actionsFor(entities.StageIdle, entities.PipelineRun{}),
+			Actions:    actionsFor(entities.StageIdle, entities.PipelineRun{}, chargerSnapshot{}),
 		}
 	}
 
@@ -312,7 +312,7 @@ func (s *PipelineService) currentState() PipelineState {
 		StageLabel: stageLabels[stage],
 		StageHint:  stageHints[stage],
 		Hops:       buildHops(evidence, charger, stage, s.run),
-		Actions:    actionsFor(stage, s.run),
+		Actions:    actionsFor(stage, s.run, charger),
 		Run:        s.run,
 		Charger:    s.chargerView(charger),
 	}

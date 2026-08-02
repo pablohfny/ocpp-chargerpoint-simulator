@@ -212,6 +212,8 @@ func findStaticPath() string {
 		"web/static",
 		"./web/static",
 		"../web/static",
+		// Reached from a package directory two levels down, as the tests are.
+		"../../web/static",
 	}
 
 	// Also try relative to executable

@@ -164,10 +164,14 @@ func TestDeriveStageFailurePropagation(t *testing.T) {
 }
 
 func TestActionsForStage(t *testing.T) {
+	// pluggedCharger is the connector state most stages run against.
+	pluggedCharger := chargerSnapshot{Found: true, Status: entities.StatusCharging, CablePlugged: true}
+
 	tests := []struct {
 		name            string
 		inputStage      entities.PipelineStage
 		inputRun        entities.PipelineRun
+		inputCharger    chargerSnapshot
 		expectedActions []entities.PipelineActionID
 		expectedPrimary entities.PipelineActionID
 	}{
@@ -180,26 +184,29 @@ func TestActionsForStage(t *testing.T) {
 			name:       "plug stage",
 			inputStage: entities.StagePlug,
 			expectedActions: []entities.PipelineActionID{
-				entities.ActionPlug, entities.ActionStartLocal,
+				entities.ActionPlug, entities.ActionStartLocal, entities.ActionReset,
 			},
 			expectedPrimary: entities.ActionPlug,
 		},
 		{
-			name:       "start stage carries every start variant",
-			inputStage: entities.StageStart,
+			name:         "start stage carries every start variant",
+			inputStage:   entities.StageStart,
+			inputCharger: pluggedCharger,
 			expectedActions: []entities.PipelineActionID{
 				entities.ActionStartPartner,
 				entities.ActionStartInvalidAuth,
 				entities.ActionStartOccupied,
 				entities.ActionStartLocal,
 				entities.ActionUnplug,
+				entities.ActionReset,
 			},
 			expectedPrimary: entities.ActionStartPartner,
 		},
 		{
-			name:       "charging stage carries the charging variants",
-			inputStage: entities.StageCharging,
-			inputRun:   entities.PipelineRun{SessionID: "sess-1"},
+			name:         "charging stage carries the charging variants",
+			inputStage:   entities.StageCharging,
+			inputRun:     entities.PipelineRun{SessionID: "sess-1"},
+			inputCharger: pluggedCharger,
 			expectedActions: []entities.PipelineActionID{
 				entities.ActionStopRemote,
 				entities.ActionStopLocal,
@@ -208,25 +215,29 @@ func TestActionsForStage(t *testing.T) {
 				entities.ActionFault,
 				entities.ActionSendMeter,
 				entities.ActionUnplug,
+				entities.ActionReset,
 			},
 			expectedPrimary: entities.ActionStopRemote,
 		},
 		{
-			name:       "suspended stage leads with resume",
-			inputStage: entities.StageSuspended,
-			inputRun:   entities.PipelineRun{SessionID: "sess-1"},
+			name:         "suspended stage leads with resume",
+			inputStage:   entities.StageSuspended,
+			inputRun:     entities.PipelineRun{SessionID: "sess-1"},
+			inputCharger: pluggedCharger,
 			expectedActions: []entities.PipelineActionID{
 				entities.ActionResume,
 				entities.ActionStopRemote,
 				entities.ActionStopLocal,
 				entities.ActionFault,
 				entities.ActionUnplug,
+				entities.ActionReset,
 			},
 			expectedPrimary: entities.ActionResume,
 		},
 		{
-			name:       "finishing stage waits for the cdr",
-			inputStage: entities.StageFinishing,
+			name:         "finishing stage waits for the cdr",
+			inputStage:   entities.StageFinishing,
+			inputCharger: pluggedCharger,
 			expectedActions: []entities.PipelineActionID{
 				entities.ActionUnplug,
 				entities.ActionSendMeter,
@@ -242,16 +253,18 @@ func TestActionsForStage(t *testing.T) {
 			expectedPrimary: entities.ActionReset,
 		},
 		{
-			name:       "failed stage restarts or recovers the connector",
-			inputStage: entities.StageFailed,
+			name:         "failed stage restarts or recovers the connector",
+			inputStage:   entities.StageFailed,
+			inputCharger: chargerSnapshot{Found: true, Status: entities.StatusFaulted, CablePlugged: true},
 			expectedActions: []entities.PipelineActionID{
 				entities.ActionReset, entities.ActionClearFault, entities.ActionUnplug,
 			},
 			expectedPrimary: entities.ActionReset,
 		},
 		{
-			name:       "without an ocpi session the local stop is emphasised",
-			inputStage: entities.StageCharging,
+			name:         "without an ocpi session the local stop is emphasised",
+			inputStage:   entities.StageCharging,
+			inputCharger: pluggedCharger,
 			expectedActions: []entities.PipelineActionID{
 				entities.ActionStopRemote,
 				entities.ActionStopLocal,
@@ -260,14 +273,23 @@ func TestActionsForStage(t *testing.T) {
 				entities.ActionFault,
 				entities.ActionSendMeter,
 				entities.ActionUnplug,
+				entities.ActionReset,
 			},
 			expectedPrimary: entities.ActionStopLocal,
+		},
+		{
+			// A button that would only return an error is not offered at all.
+			name:            "failed stage without a fault or a cable hides the recovery actions",
+			inputStage:      entities.StageFailed,
+			inputCharger:    chargerSnapshot{Found: true, Status: entities.StatusAvailable},
+			expectedActions: []entities.PipelineActionID{entities.ActionReset},
+			expectedPrimary: entities.ActionReset,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actualActions := actionsFor(test.inputStage, test.inputRun)
+			actualActions := actionsFor(test.inputStage, test.inputRun, test.inputCharger)
 
 			if len(actualActions) != len(test.expectedActions) {
 				t.Fatalf("actionsFor() returned %d actions, expected %d (%+v)", len(actualActions), len(test.expectedActions), actualActions)

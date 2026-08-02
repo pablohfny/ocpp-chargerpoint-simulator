@@ -36,6 +36,7 @@ var stageActions = map[entities.PipelineStage][]entities.PipelineActionID{
 	entities.StagePlug: {
 		entities.ActionPlug,
 		entities.ActionStartLocal,
+		entities.ActionReset,
 	},
 	entities.StageStart: {
 		entities.ActionStartPartner,
@@ -43,12 +44,14 @@ var stageActions = map[entities.PipelineStage][]entities.PipelineActionID{
 		entities.ActionStartOccupied,
 		entities.ActionStartLocal,
 		entities.ActionUnplug,
+		entities.ActionReset,
 	},
 	entities.StageStarting: {
 		entities.ActionStopRemote,
 		entities.ActionStopLocal,
 		entities.ActionUnplug,
 		entities.ActionWaitTimeout,
+		entities.ActionReset,
 	},
 	entities.StageCharging: {
 		entities.ActionStopRemote,
@@ -58,6 +61,7 @@ var stageActions = map[entities.PipelineStage][]entities.PipelineActionID{
 		entities.ActionFault,
 		entities.ActionSendMeter,
 		entities.ActionUnplug,
+		entities.ActionReset,
 	},
 	entities.StageSuspended: {
 		entities.ActionResume,
@@ -65,6 +69,7 @@ var stageActions = map[entities.PipelineStage][]entities.PipelineActionID{
 		entities.ActionStopLocal,
 		entities.ActionFault,
 		entities.ActionUnplug,
+		entities.ActionReset,
 	},
 	entities.StageFinishing: {
 		entities.ActionUnplug,
@@ -168,7 +173,7 @@ var actionCatalog = map[entities.PipelineActionID]entities.PipelineAction{
 // actionsFor returns the actions valid in a stage, already decorated for the
 // UI. The primary action follows the run: without an OCPI session id there is
 // nothing to STOP remotely, so the local stop is emphasised instead.
-func actionsFor(stage entities.PipelineStage, run entities.PipelineRun) []entities.PipelineAction {
+func actionsFor(stage entities.PipelineStage, run entities.PipelineRun, charger chargerSnapshot) []entities.PipelineAction {
 	ids := stageActions[stage]
 	primary := stagePrimaryAction[stage]
 
@@ -178,11 +183,31 @@ func actionsFor(stage entities.PipelineStage, run entities.PipelineRun) []entiti
 
 	actions := make([]entities.PipelineAction, 0, len(ids))
 	for _, id := range ids {
+		if !appliesToCharger(id, charger) {
+			continue
+		}
 		action := actionCatalog[id]
 		action.Primary = id == primary
 		actions = append(actions, action)
 	}
 	return actions
+}
+
+// appliesToCharger drops the actions the connector cannot honour right now, so
+// the bar never offers a button that is guaranteed to fail.
+func appliesToCharger(action entities.PipelineActionID, charger chargerSnapshot) bool {
+	if !charger.Found {
+		return true
+	}
+
+	switch action {
+	case entities.ActionClearFault:
+		return charger.Status == entities.StatusFaulted
+	case entities.ActionUnplug:
+		return charger.CablePlugged
+	default:
+		return true
+	}
 }
 
 // isActionAllowed reports whether an action may run in the given stage.

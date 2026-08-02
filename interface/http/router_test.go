@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -136,6 +137,126 @@ func TestFullRouterAuthBoundaries(t *testing.T) {
 				t.Errorf("status = %d, expected %d (body %s)", recorder.Code, test.expectedStatus, recorder.Body)
 			}
 		})
+	}
+}
+
+// TestCockpitPageRouting locks in where the browser lands: the cockpit at /,
+// the old pages redirected onto their tab and the legacy panel still served.
+func TestCockpitPageRouting(t *testing.T) {
+	tests := []struct {
+		name             string
+		inputPath        string
+		expectedStatus   int
+		expectedLocation string
+	}{
+		{name: "cockpit at the root", inputPath: "/", expectedStatus: http.StatusOK},
+		{name: "shared stylesheet", inputPath: "/app.css", expectedStatus: http.StatusOK},
+		{name: "pipeline script", inputPath: "/pipeline.js", expectedStatus: http.StatusOK},
+		{name: "legacy panel", inputPath: "/legacy", expectedStatus: http.StatusOK},
+		{
+			name:             "simple redirects to the charger tab",
+			inputPath:        "/simple",
+			expectedStatus:   http.StatusFound,
+			expectedLocation: "/#carregador",
+		},
+		{
+			name:             "ocpi redirects to the partners tab",
+			inputPath:        "/ocpi",
+			expectedStatus:   http.StatusFound,
+			expectedLocation: "/#parceiros",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockRouter := newFullRouter(t, "", "")
+
+			req := httptest.NewRequest(http.MethodGet, test.inputPath, nil)
+			recorder := httptest.NewRecorder()
+			mockRouter.ServeHTTP(recorder, req)
+
+			if recorder.Code != test.expectedStatus {
+				t.Fatalf("status = %d, expected %d", recorder.Code, test.expectedStatus)
+			}
+			if test.expectedLocation != "" && recorder.Header().Get("Location") != test.expectedLocation {
+				t.Errorf("Location = %q, expected %q", recorder.Header().Get("Location"), test.expectedLocation)
+			}
+		})
+	}
+}
+
+// TestPipelineRoutesAreServed proves the cockpit's own API is wired and behind
+// the same basic auth as the rest of the control plane.
+func TestPipelineRoutesAreServed(t *testing.T) {
+	mockRouter := newFullRouter(t, "", "")
+
+	stateRequest := httptest.NewRequest(http.MethodGet, "/api/v1/pipeline/state", nil)
+	stateRecorder := httptest.NewRecorder()
+	mockRouter.ServeHTTP(stateRecorder, stateRequest)
+
+	if stateRecorder.Code != http.StatusOK {
+		t.Fatalf("state status = %d, expected 200 (body %s)", stateRecorder.Code, stateRecorder.Body)
+	}
+
+	var actualState struct {
+		Stage string `json:"stage"`
+	}
+	if err := json.Unmarshal(stateRecorder.Body.Bytes(), &actualState); err != nil {
+		t.Fatalf("could not decode state: %v", err)
+	}
+	if actualState.Stage != "idle" {
+		t.Errorf("stage = %q, expected %q before a context is armed", actualState.Stage, "idle")
+	}
+
+	actionRequest := httptest.NewRequest(http.MethodPost, "/api/v1/pipeline/action", strings.NewReader(`{"action":"plug"}`))
+	actionRecorder := httptest.NewRecorder()
+	mockRouter.ServeHTTP(actionRecorder, actionRequest)
+
+	if actionRecorder.Code != http.StatusConflict {
+		t.Errorf("action status = %d, expected 409 without a context", actionRecorder.Code)
+	}
+}
+
+// TestSettingsRoundTrip covers the Config tab's read and write path.
+func TestSettingsRoundTrip(t *testing.T) {
+	mockRouter := newFullRouter(t, "", "")
+
+	updateRequest := httptest.NewRequest(http.MethodPut, "/api/v1/settings", strings.NewReader(
+		`{"ocpiBaseUrl":"https://ocpi-vps.nucharge.com.br","publicBaseUrl":"https://sim.nucharge.com.br","defaultLocationId":"LOC-9","batteryCapacityKwh":82}`))
+	updateRecorder := httptest.NewRecorder()
+	mockRouter.ServeHTTP(updateRecorder, updateRequest)
+
+	if updateRecorder.Code != http.StatusOK {
+		t.Fatalf("update status = %d, expected 200 (body %s)", updateRecorder.Code, updateRecorder.Body)
+	}
+
+	readRequest := httptest.NewRequest(http.MethodGet, "/api/v1/settings", nil)
+	readRecorder := httptest.NewRecorder()
+	mockRouter.ServeHTTP(readRecorder, readRequest)
+
+	var actualPayload dto.SettingsResponse
+	if err := json.Unmarshal(readRecorder.Body.Bytes(), &actualPayload); err != nil {
+		t.Fatalf("could not decode settings: %v", err)
+	}
+	if actualPayload.Settings.DefaultLocationID != "LOC-9" || actualPayload.Settings.BatteryCapacityKWh != 82 {
+		t.Errorf("settings = %+v, expected the update to stick", actualPayload.Settings)
+	}
+	if actualPayload.Runtime.ClientID != "test-station" {
+		t.Errorf("runtime = %+v, expected the boot-fixed values to be reported", actualPayload.Runtime)
+	}
+
+	// The battery capacity feeds the connector view, so the change must show up
+	// there too rather than being frozen at boot.
+	connectorRequest := httptest.NewRequest(http.MethodGet, "/api/v1/status/connectors/1", nil)
+	connectorRecorder := httptest.NewRecorder()
+	mockRouter.ServeHTTP(connectorRecorder, connectorRequest)
+
+	var actualConnector dto.ConnectorResponse
+	if err := json.Unmarshal(connectorRecorder.Body.Bytes(), &actualConnector); err != nil {
+		t.Fatalf("could not decode connector: %v", err)
+	}
+	if actualConnector.BatteryCapacityKWh != 82 {
+		t.Errorf("BatteryCapacityKWh = %v, expected the saved 82", actualConnector.BatteryCapacityKWh)
 	}
 }
 

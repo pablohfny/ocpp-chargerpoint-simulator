@@ -134,11 +134,17 @@ func buildHops(evidence pipelineEvidence, charger chargerSnapshot, stage entitie
 		cdrHop(evidence),
 	}
 
-	if stage == entities.StageIdle || hasActiveHop(hops) {
+	// A finished or broken run has no "current" hop, and a busy charger has
+	// already claimed the highlight for itself.
+	if stage == entities.StageIdle || stage == entities.StageDone || stage == entities.StageFailed || hasActiveHop(hops) {
 		return hops
 	}
 
 	for index := range hops {
+		// Nothing downstream of a red hop was ever reached.
+		if hops[index].Status == entities.HopFailed {
+			break
+		}
 		if hops[index].Status == entities.HopPending {
 			hops[index].Status = entities.HopActive
 			break
