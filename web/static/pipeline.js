@@ -167,7 +167,7 @@ Sim.tabs.pipeline = (function () {
 
         const charger = state.charger;
         document.getElementById('pipelineCharger').textContent = charger
-            ? Sim.statusLabel(charger.status) + ' · ' + charger.batteryPercent + '% de bateria'
+            ? Sim.statusLabel(charger.status) + (charger.cablePlugged ? ' · ' + charger.batteryPercent + '% de bateria' : ' · sem veículo')
             : '';
     }
 

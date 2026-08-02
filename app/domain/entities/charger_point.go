@@ -376,6 +376,11 @@ func (point *ChargerPoint) UnplugCable() error {
 	}
 
 	point.CablePlugged = false
+	// The battery belongs to the EV: once the car leaves, its state of charge
+	// leaves with it. Without this reset the last session's SoC (often 100%)
+	// lingers on the UI with no vehicle present.
+	point.Soc = 0
+	point.MeterValue = 0
 	return nil
 }
 

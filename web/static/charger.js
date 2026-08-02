@@ -39,16 +39,28 @@ Sim.tabs.carregador = (function () {
     function render(connector) {
         currentStatus = connector.status;
 
-        const percent = connector.batteryPercent || 0;
+        // A bateria pertence ao veículo: sem cabo não há carro, logo não há
+        // percentual a exibir — mostrar um número aqui induz confusão.
+        const evPresent = Boolean(connector.cablePlugged);
+        const percent = evPresent ? (connector.batteryPercent || 0) : null;
         const readout = document.getElementById('batteryPercent');
         Sim.clear(readout);
-        readout.appendChild(document.createTextNode(String(percent)));
-        readout.appendChild(Sim.element('span', null, '%'));
+        if (percent === null) {
+            readout.appendChild(document.createTextNode('—'));
+        } else {
+            readout.appendChild(document.createTextNode(String(percent)));
+            readout.appendChild(Sim.element('span', null, '%'));
+        }
+
+        const batteryLabel = document.getElementById('batteryLabel');
+        if (batteryLabel) {
+            batteryLabel.textContent = evPresent ? 'Bateria' : 'Sem veículo';
+        }
 
         const ring = document.getElementById('ringValue');
         ring.style.strokeDasharray = RING_CIRCUMFERENCE;
-        ring.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - percent / 100);
-        ring.setAttribute('class', 'ring-value ' + ringModifier(connector.status));
+        ring.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - (percent || 0) / 100);
+        ring.setAttribute('class', 'ring-value ' + (evPresent ? ringModifier(connector.status) : 'idle'));
 
         const pill = document.getElementById('chargerStatus');
         pill.textContent = Sim.statusLabel(connector.status);
