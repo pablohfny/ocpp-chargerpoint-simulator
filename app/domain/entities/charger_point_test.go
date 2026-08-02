@@ -16,7 +16,10 @@ func TestUnplugCableResetsBatteryState(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			point := &ChargerPoint{CablePlugged: true, Soc: tt.soc, MeterValue: tt.meterWh}
+			point := NewChargerPoint(1)
+			point.CablePlugged = true
+			point.Soc = tt.soc
+			point.MeterValue = tt.meterWh
 
 			if err := point.UnplugCable(); err != nil {
 				t.Fatalf("UnplugCable() error = %v", err)
@@ -32,7 +35,8 @@ func TestUnplugCableResetsBatteryState(t *testing.T) {
 }
 
 func TestUnplugCableWithoutCableFails(t *testing.T) {
-	point := &ChargerPoint{CablePlugged: false, Soc: 55}
+	point := NewChargerPoint(1)
+	point.Soc = 55
 
 	if err := point.UnplugCable(); err == nil {
 		t.Fatal("UnplugCable() with no cable should fail")
