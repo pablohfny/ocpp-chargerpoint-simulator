@@ -40,13 +40,34 @@ type CommandDispatchResult struct {
 	Event       *entities.OCPIEvent `json:"event,omitempty"`
 }
 
+// StartSessionOptions carries the target of a START_SESSION and the knobs used
+// to exercise failure scenarios.
+type StartSessionOptions struct {
+	LocationID  string
+	EvseUID     string
+	ConnectorID string
+	// AuthTokenOverride replaces the partner's own credential on the wire. It
+	// exists so the cockpit can provoke the platform's 401 on purpose; empty
+	// means "use the partner's real token".
+	AuthTokenOverride string
+}
+
 // StartSession builds and dispatches a START_SESSION command for the partner.
 func (s *OCPICommandService) StartSession(slug, locationID, evseUID, connectorID string) (*CommandDispatchResult, error) {
+	return s.StartSessionWith(slug, StartSessionOptions{
+		LocationID:  locationID,
+		EvseUID:     evseUID,
+		ConnectorID: connectorID,
+	})
+}
+
+// StartSessionWith dispatches a START_SESSION with explicit options.
+func (s *OCPICommandService) StartSessionWith(slug string, options StartSessionOptions) (*CommandDispatchResult, error) {
 	partner, err := s.partners.Get(slug)
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(locationID) == "" {
+	if strings.TrimSpace(options.LocationID) == "" {
 		return nil, fmt.Errorf("locationId is required")
 	}
 
@@ -59,13 +80,18 @@ func (s *OCPICommandService) StartSession(slug, locationID, evseUID, connectorID
 		CommandUID:  commandUID,
 		TokenUID:    tokenUID,
 		ContractID:  contractID,
-		LocationID:  locationID,
-		EvseUID:     evseUID,
-		ConnectorID: connectorID,
+		LocationID:  options.LocationID,
+		EvseUID:     options.EvseUID,
+		ConnectorID: options.ConnectorID,
 		Now:         nowUTC(),
 	})
 
-	return s.dispatch(&partner, entities.CommandStartSession, commandUID, command, tokenUID, command.Token.Type, contractID, "")
+	authToken := partner.TokenToCallUs
+	if options.AuthTokenOverride != "" {
+		authToken = options.AuthTokenOverride
+	}
+
+	return s.dispatch(&partner, entities.CommandStartSession, commandUID, command, tokenUID, command.Token.Type, contractID, "", authToken)
 }
 
 // StopSession builds and dispatches a STOP_SESSION command for the partner.
@@ -81,7 +107,7 @@ func (s *OCPICommandService) StopSession(slug, sessionID string) (*CommandDispat
 	commandUID := utils.GenerateUUIDV4()
 	command := factories.CreateStopSessionCommand(&partner, commandUID, sessionID)
 
-	return s.dispatch(&partner, entities.CommandStopSession, commandUID, command, "", "", "", sessionID)
+	return s.dispatch(&partner, entities.CommandStopSession, commandUID, command, "", "", "", sessionID, partner.TokenToCallUs)
 }
 
 // dispatch posts a command and records the attempt as a command_sent event.
@@ -90,6 +116,7 @@ func (s *OCPICommandService) dispatch(
 	commandType, commandUID string,
 	payload interface{},
 	tokenUID, tokenType, contractID, sessionID string,
+	authToken string,
 ) (*CommandDispatchResult, error) {
 	targetURL := factories.BuildCommandURL(partner, commandType)
 	responseURL := factories.BuildResponseURL(partner, commandType, commandUID)
@@ -122,7 +149,7 @@ func (s *OCPICommandService) dispatch(
 		SessionID:   sessionID,
 	}
 
-	response, err := s.client.PostCommand(targetURL, partner.TokenToCallUs, payload)
+	response, err := s.client.PostCommand(targetURL, authToken, payload)
 	if err != nil {
 		event.Error = err.Error()
 		recorded := s.events.Record(event)

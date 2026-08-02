@@ -5,7 +5,6 @@ import (
 
 	"EV-Client-Simulator/app/domain/entities"
 	"EV-Client-Simulator/app/services"
-	"EV-Client-Simulator/interface/http/dto"
 	"EV-Client-Simulator/interface/http/handlers"
 
 	"github.com/go-chi/chi/v5"
@@ -16,7 +15,8 @@ type OCPIDependencies struct {
 	Partners *services.OCPIPartnerService
 	Events   *services.OCPIEventService
 	Commands *services.OCPICommandService
-	Defaults dto.OCPIDefaultsResponse
+	// Settings supplies the live form defaults edited in the Config tab.
+	Settings *services.AppSettingsService
 	// BasicAuth wraps the control API. Nil means no authentication.
 	BasicAuth func(http.Handler) http.Handler
 }
@@ -28,7 +28,7 @@ type OCPIDependencies struct {
 // routes under /ocpi/p are deliberately exempt: our platform calls them with
 // the partner's OCPI `Token` credential instead.
 func RegisterOCPIRoutes(router *chi.Mux, deps OCPIDependencies) {
-	partnerHandler := handlers.NewOCPIPartnerHandler(deps.Partners, deps.Events, deps.Commands, deps.Defaults)
+	partnerHandler := handlers.NewOCPIPartnerHandler(deps.Partners, deps.Events, deps.Commands, deps.Settings)
 	receiverHandler := handlers.NewOCPIReceiverHandler(deps.Partners, deps.Events)
 
 	router.Route("/ocpi/api", func(r chi.Router) {

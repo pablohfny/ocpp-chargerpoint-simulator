@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"EV-Client-Simulator/app/services"
+	"EV-Client-Simulator/interface/http/dto"
 	"EV-Client-Simulator/interface/http/handlers"
 
 	"github.com/go-chi/chi/v5"
@@ -21,9 +22,12 @@ type RouteDependencies struct {
 	ReconnectFunc  func() error
 	DisconnectFunc func() error
 
-	// BatteryCapacityKWh sizes the virtual EV battery behind the reported
-	// battery percentage.
-	BatteryCapacityKWh float64
+	// Settings owns every runtime-editable value shown in the Config tab.
+	Settings *services.AppSettingsService
+	// Pipeline is the end-to-end cockpit orchestrator. Nil skips its routes.
+	Pipeline *services.PipelineService
+	// Runtime holds the boot-fixed values the Config tab shows read-only.
+	Runtime dto.RuntimeInfo
 
 	// BasicAuth wraps the web UI and the control APIs. Nil disables it.
 	BasicAuth func(http.Handler) http.Handler
@@ -32,12 +36,13 @@ type RouteDependencies struct {
 // RegisterRoutes registers all API routes
 func RegisterRoutes(router *chi.Mux, deps RouteDependencies) {
 	// Initialize handlers
-	statusHandler := handlers.NewStatusHandler(deps.StationService, deps.ClientID, deps.ServerAddr, deps.Connected, deps.BatteryCapacityKWh)
+	statusHandler := handlers.NewStatusHandler(deps.StationService, deps.Settings, deps.ClientID, deps.ServerAddr, deps.Connected)
 	actionHandler := handlers.NewActionHandler(deps.StationService, deps.ReconnectFunc, deps.DisconnectFunc)
 	configHandler := handlers.NewConfigHandler(deps.StationService.GetConfigService())
 	simulationHandler := handlers.NewSimulationHandler(deps.StationService.GetSimulationService())
 	logsHandler := handlers.NewLogsHandler(deps.LogService)
 	ocppTriggerHandler := handlers.NewOCPPTriggerHandler(deps.StationService)
+	settingsHandler := handlers.NewSettingsHandler(deps.Settings, deps.Runtime)
 
 	// API v1 routes
 	router.Route("/api/v1", func(r chi.Router) {
@@ -125,6 +130,22 @@ func RegisterRoutes(router *chi.Mux, deps RouteDependencies) {
 			})
 		})
 
+		// Simulator settings, editable from the Config tab
+		r.Route("/settings", func(r chi.Router) {
+			r.Get("/", settingsHandler.GetSettings)
+			r.Put("/", settingsHandler.UpdateSettings)
+		})
+
+		// End-to-end pipeline cockpit
+		if deps.Pipeline != nil {
+			pipelineHandler := handlers.NewPipelineHandler(deps.Pipeline)
+			r.Route("/pipeline", func(r chi.Router) {
+				r.Get("/state", pipelineHandler.GetState)
+				r.Post("/start-context", pipelineHandler.StartContext)
+				r.Post("/action", pipelineHandler.RunAction)
+			})
+		}
+
 		// Log endpoints
 		r.Route("/logs", func(r chi.Router) {
 			r.Get("/messages", logsHandler.GetLogs)
@@ -160,9 +181,12 @@ func RegisterRoutes(router *chi.Mux, deps RouteDependencies) {
 		protect = func(next http.Handler) http.Handler { return next }
 	}
 
-	// Named pages, so the URLs stay clean and extension free
-	router.Method(http.MethodGet, "/simple", protect(servePage(staticPath, "simple.html")))
-	router.Method(http.MethodGet, "/ocpi", protect(servePage(staticPath, "ocpi.html")))
+	// The unified cockpit lives at /, served by the file server below. The old
+	// standalone pages redirect onto their tab so bookmarks keep working, and
+	// the full legacy panel stays reachable during the transition.
+	router.Method(http.MethodGet, "/legacy", protect(servePage(staticPath, "legacy.html")))
+	router.Method(http.MethodGet, "/simple", protect(redirectTo("/#carregador")))
+	router.Method(http.MethodGet, "/ocpi", protect(redirectTo("/#parceiros")))
 
 	router.Handle("/*", protect(http.FileServer(http.Dir(staticPath))))
 }
@@ -171,6 +195,13 @@ func RegisterRoutes(router *chi.Mux, deps RouteDependencies) {
 func servePage(staticPath, file string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(staticPath, file))
+	})
+}
+
+// redirectTo permanently points an old page at its tab in the cockpit.
+func redirectTo(target string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target, http.StatusFound)
 	})
 }
 

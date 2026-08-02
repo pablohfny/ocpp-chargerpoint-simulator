@@ -102,6 +102,20 @@ func (s *OCPIEventService) List(slug string, after int64, limit int) []entities.
 	return result
 }
 
+// LastID returns the id of the newest buffered event for a partner, or zero
+// when the partner has none. It is the cursor a pipeline run opens with, so
+// events from earlier runs never bleed into it.
+func (s *OCPIEventService) LastID(slug string) int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	buffer := s.buffers[slug]
+	if len(buffer) == 0 {
+		return 0
+	}
+	return buffer[len(buffer)-1].ID
+}
+
 // Clear drops every buffered event for a partner. The durable log is left
 // untouched, so cleared events reappear only if the process is restarted.
 func (s *OCPIEventService) Clear(slug string) {

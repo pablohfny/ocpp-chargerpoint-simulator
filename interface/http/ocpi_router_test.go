@@ -68,12 +68,20 @@ func newOCPITestEnv(t *testing.T, simUser, simPass string) *ocpiTestEnv {
 		t.Fatalf("could not seed partner: %v", err)
 	}
 
+	settingsService := services.NewAppSettingsService(entities.AppSettings{
+		OCPIBaseURL:        "https://ocpi-dev.nucharge.com.br",
+		PublicBaseURL:      "https://sim-dev.nucharge.com.br",
+		DefaultLocationID:  "LOC-DEFAULT",
+		DefaultEvseUID:     "EVSE-DEFAULT",
+		BatteryCapacityKWh: 60,
+	}, nil)
+
 	router := chi.NewRouter()
 	RegisterOCPIRoutes(router, OCPIDependencies{
 		Partners:  partnerService,
 		Events:    eventService,
 		Commands:  services.NewOCPICommandService(partnerService, eventService, client),
-		Defaults:  dto.OCPIDefaultsResponse{LocationID: "LOC-DEFAULT", EvseUID: "EVSE-DEFAULT"},
+		Settings:  settingsService,
 		BasicAuth: middleware.BasicAuth("test", simUser, simPass),
 	})
 
@@ -349,7 +357,7 @@ func TestStartSessionDispatchesCommand(t *testing.T) {
 	}
 }
 
-func TestStartSessionUsesEnvDefaults(t *testing.T) {
+func TestStartSessionUsesConfiguredDefaults(t *testing.T) {
 	mockEnv := newOCPITestEnv(t, "", "")
 
 	mockEnv.do(t, http.MethodPost, "/ocpi/api/partners/nayax-sim/commands/start", "", `{}`)
@@ -359,7 +367,7 @@ func TestStartSessionUsesEnvDefaults(t *testing.T) {
 		t.Fatalf("payload type = %T, expected StartSessionCommand", mockEnv.client.lastPayload)
 	}
 	if command.LocationID != "LOC-DEFAULT" || command.EvseUID != "EVSE-DEFAULT" {
-		t.Errorf("command = %+v, expected the env defaults to be applied", command)
+		t.Errorf("command = %+v, expected the configured defaults to be applied", command)
 	}
 }
 

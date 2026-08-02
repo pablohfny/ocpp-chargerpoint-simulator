@@ -42,25 +42,35 @@ func newFullRouter(t *testing.T, simUser, simPass string) *chi.Mux {
 	dir := t.TempDir()
 	partnerService := services.NewOCPIPartnerService(persistence.NewOCPIPartnerStore(filepath.Join(dir, "partners.json")))
 	eventService := services.NewOCPIEventService(persistence.NewOCPIEventLog(filepath.Join(dir, "events.jsonl")))
+	commandService := services.NewOCPICommandService(partnerService, eventService, &mockCommandClient{})
+	settingsService := services.NewAppSettingsService(entities.AppSettings{
+		OCPIBaseURL:        "https://ocpi-dev.nucharge.com.br",
+		PublicBaseURL:      "https://sim-dev.nucharge.com.br",
+		BatteryCapacityKWh: 60,
+	}, persistence.NewAppSettingsStore(filepath.Join(dir, "settings.json")))
 	basicAuth := middleware.BasicAuth("test", simUser, simPass)
 
 	router := chi.NewRouter()
 	RegisterRoutes(router, RouteDependencies{
-		StationService:     controller.GetService(),
-		LogService:         controller.GetLogService(),
-		ClientID:           "test-station",
-		ServerAddr:         "localhost:3001",
-		Connected:          controller.IsConnected(),
-		ReconnectFunc:      controller.Reconnect,
-		DisconnectFunc:     controller.Disconnect,
-		BatteryCapacityKWh: 60,
-		BasicAuth:          basicAuth,
+		StationService: controller.GetService(),
+		LogService:     controller.GetLogService(),
+		ClientID:       "test-station",
+		ServerAddr:     "localhost:3001",
+		Connected:      controller.IsConnected(),
+		ReconnectFunc:  controller.Reconnect,
+		DisconnectFunc: controller.Disconnect,
+		Settings:       settingsService,
+		Pipeline: services.NewPipelineService(
+			controller.GetService(), partnerService, eventService, commandService, settingsService,
+		),
+		Runtime:   dto.RuntimeInfo{ServerAddr: "localhost:3001", ClientID: "test-station", HTTPPort: "8080"},
+		BasicAuth: basicAuth,
 	})
 	RegisterOCPIRoutes(router, OCPIDependencies{
 		Partners:  partnerService,
 		Events:    eventService,
-		Commands:  services.NewOCPICommandService(partnerService, eventService, &mockCommandClient{}),
-		Defaults:  dto.OCPIDefaultsResponse{},
+		Commands:  commandService,
+		Settings:  settingsService,
 		BasicAuth: basicAuth,
 	})
 

@@ -46,20 +46,46 @@ func main() {
 
 	basicAuth := middleware.BasicAuth("NuCharge Simulator", cfg.SimUser, cfg.SimPass)
 
+	// Settings are env-seeded and then overlaid with whatever the Config tab
+	// persisted, so the file wins over the environment on every boot.
+	settingsService := services.NewAppSettingsService(
+		cfg.BootstrapSettings(),
+		persistence.NewAppSettingsStore(cfg.SettingsPath),
+	)
+	if err := settingsService.Load(); err != nil {
+		fmt.Printf("Warning: could not load settings: %v\n", err)
+	}
+
+	ocpi := setupOCPI(cfg, httpServer.Router(), basicAuth, settingsService)
+
+	pipelineService := services.NewPipelineService(
+		stationController.GetService(),
+		ocpi.partners,
+		ocpi.events,
+		ocpi.commands,
+		settingsService,
+	)
+
 	// Register HTTP routes
 	interface_http.RegisterRoutes(httpServer.Router(), interface_http.RouteDependencies{
-		StationService:     stationController.GetService(),
-		LogService:         stationController.GetLogService(),
-		ClientID:           cfg.ClientID,
-		ServerAddr:         cfg.ServerAddr,
-		Connected:          stationController.IsConnected(),
-		ReconnectFunc:      stationController.Reconnect,
-		DisconnectFunc:     stationController.Disconnect,
-		BatteryCapacityKWh: cfg.BatteryCapacityKWh,
-		BasicAuth:          basicAuth,
+		StationService: stationController.GetService(),
+		LogService:     stationController.GetLogService(),
+		ClientID:       cfg.ClientID,
+		ServerAddr:     cfg.ServerAddr,
+		Connected:      stationController.IsConnected(),
+		ReconnectFunc:  stationController.Reconnect,
+		DisconnectFunc: stationController.Disconnect,
+		Settings:       settingsService,
+		Pipeline:       pipelineService,
+		Runtime: dto.RuntimeInfo{
+			ServerAddr:   cfg.ServerAddr,
+			ClientID:     cfg.ClientID,
+			HTTPPort:     cfg.HTTPPort,
+			AuthEnabled:  cfg.AuthEnabled(),
+			PartnersPath: cfg.OCPIDataPath,
+		},
+		BasicAuth: basicAuth,
 	})
-
-	ocpiPartners := setupOCPI(cfg, httpServer.Router(), basicAuth)
 
 	// Start HTTP server in background
 	go func() {
@@ -72,9 +98,10 @@ func main() {
 	fmt.Printf("  Client ID: %s\n", cfg.ClientID)
 	fmt.Printf("  Server: %s\n", cfg.ServerAddr)
 	fmt.Printf("  HTTP API: http://localhost:%s/api/v1\n", cfg.HTTPPort)
-	fmt.Printf("  Simple UI: http://localhost:%s/simple\n", cfg.HTTPPort)
-	fmt.Printf("  OCPI partner sim: http://localhost:%s/ocpi (%d partner(s))\n", cfg.HTTPPort, len(ocpiPartners.List()))
+	fmt.Printf("  Cockpit: http://localhost:%s/ (%d parceiro(s) OCPI)\n", cfg.HTTPPort, len(ocpi.partners.List()))
+	fmt.Printf("  Painel legado: http://localhost:%s/legacy\n", cfg.HTTPPort)
 	fmt.Printf("  OCPI data: %s\n", cfg.OCPIDataPath)
+	fmt.Printf("  Settings: %s\n", cfg.SettingsPath)
 	if cfg.AuthEnabled() {
 		fmt.Printf("  Basic auth: enabled (user %s)\n", cfg.SimUser)
 	} else {
@@ -96,12 +123,20 @@ func main() {
 	stationController.Init()
 }
 
+// ocpiServices are the OCPI building blocks the pipeline orchestrator reuses.
+type ocpiServices struct {
+	partners *services.OCPIPartnerService
+	events   *services.OCPIEventService
+	commands *services.OCPICommandService
+}
+
 // setupOCPI wires the OCPI partner simulator and registers its routes.
 func setupOCPI(
 	cfg *config.Config,
 	router *chi.Mux,
 	basicAuth func(http.Handler) http.Handler,
-) *services.OCPIPartnerService {
+	settings *services.AppSettingsService,
+) ocpiServices {
 	partnerStore := persistence.NewOCPIPartnerStore(cfg.OCPIDataPath)
 	eventLog := persistence.NewOCPIEventLog(filepath.Join(filepath.Dir(cfg.OCPIDataPath), "ocpi-events.jsonl"))
 
@@ -118,17 +153,12 @@ func setupOCPI(
 	commandService := services.NewOCPICommandService(partnerService, eventService, infrastructure_http.NewOCPIClient())
 
 	interface_http.RegisterOCPIRoutes(router, interface_http.OCPIDependencies{
-		Partners: partnerService,
-		Events:   eventService,
-		Commands: commandService,
-		Defaults: dto.OCPIDefaultsResponse{
-			LocationID:    cfg.OCPIDefaultLocation,
-			EvseUID:       cfg.OCPIDefaultEVSE,
-			OCPIBaseURL:   cfg.OCPIBaseURL,
-			PublicBaseURL: cfg.OCPIPublicBaseURL,
-		},
+		Partners:  partnerService,
+		Events:    eventService,
+		Commands:  commandService,
+		Settings:  settings,
 		BasicAuth: basicAuth,
 	})
 
-	return partnerService
+	return ocpiServices{partners: partnerService, events: eventService, commands: commandService}
 }

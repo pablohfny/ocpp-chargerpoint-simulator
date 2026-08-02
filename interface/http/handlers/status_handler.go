@@ -13,21 +13,23 @@ import (
 
 // StatusHandler handles status-related endpoints
 type StatusHandler struct {
-	stationService     *services.ChargerStationService
-	clientID           string
-	serverAddr         string
-	connected          *bool
-	batteryCapacityKWh float64
+	stationService *services.ChargerStationService
+	settings       *services.AppSettingsService
+	clientID       string
+	serverAddr     string
+	connected      *bool
 }
 
-// NewStatusHandler creates a new status handler
-func NewStatusHandler(stationService *services.ChargerStationService, clientID, serverAddr string, connected *bool, batteryCapacityKWh float64) *StatusHandler {
+// NewStatusHandler creates a new status handler. The battery capacity behind
+// the reported percentage is read from the settings service on every call, so
+// editing it in the Config tab takes effect without a restart.
+func NewStatusHandler(stationService *services.ChargerStationService, settings *services.AppSettingsService, clientID, serverAddr string, connected *bool) *StatusHandler {
 	return &StatusHandler{
-		stationService:     stationService,
-		clientID:           clientID,
-		serverAddr:         serverAddr,
-		connected:          connected,
-		batteryCapacityKWh: batteryCapacityKWh,
+		stationService: stationService,
+		settings:       settings,
+		clientID:       clientID,
+		serverAddr:     serverAddr,
+		connected:      connected,
 	}
 }
 
@@ -54,7 +56,7 @@ func (h *StatusHandler) GetConnectors(w http.ResponseWriter, r *http.Request) {
 	station := h.stationService.GetStation()
 	connectors := make([]dto.ConnectorResponse, len(station.ChargerPoints))
 	for i, point := range station.ChargerPoints {
-		connectors[i] = dto.NewConnectorResponse(point, h.batteryCapacityKWh)
+		connectors[i] = dto.NewConnectorResponse(point, h.settings.BatteryCapacityKWh())
 	}
 	writeJSON(w, http.StatusOK, connectors)
 }
@@ -74,7 +76,7 @@ func (h *StatusHandler) GetConnector(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, dto.NewConnectorResponse(point, h.batteryCapacityKWh))
+	writeJSON(w, http.StatusOK, dto.NewConnectorResponse(point, h.settings.BatteryCapacityKWh()))
 }
 
 // GetTransactions returns all active transactions

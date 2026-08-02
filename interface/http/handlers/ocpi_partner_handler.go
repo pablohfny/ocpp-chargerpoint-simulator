@@ -13,12 +13,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// OCPIPartnerHandler serves the partner control API used by the /ocpi UI.
+// OCPIPartnerHandler serves the partner control API used by the Parceiros tab.
 type OCPIPartnerHandler struct {
 	partners *services.OCPIPartnerService
 	events   *services.OCPIEventService
 	commands *services.OCPICommandService
-	defaults dto.OCPIDefaultsResponse
+	settings *services.AppSettingsService
 }
 
 // NewOCPIPartnerHandler creates the partner control handler.
@@ -26,14 +26,26 @@ func NewOCPIPartnerHandler(
 	partners *services.OCPIPartnerService,
 	events *services.OCPIEventService,
 	commands *services.OCPICommandService,
-	defaults dto.OCPIDefaultsResponse,
+	settings *services.AppSettingsService,
 ) *OCPIPartnerHandler {
-	return &OCPIPartnerHandler{partners: partners, events: events, commands: commands, defaults: defaults}
+	return &OCPIPartnerHandler{partners: partners, events: events, commands: commands, settings: settings}
 }
 
-// GetDefaults returns the env-provided defaults used to prefill the UI forms.
+// GetDefaults returns the configured defaults used to prefill the UI forms.
 func (h *OCPIPartnerHandler) GetDefaults(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, h.defaults)
+	writeJSON(w, http.StatusOK, h.defaults())
+}
+
+// defaults reads the current form defaults from the settings service, so a
+// change saved in the Config tab is picked up without a restart.
+func (h *OCPIPartnerHandler) defaults() dto.OCPIDefaultsResponse {
+	settings := h.settings.Get()
+	return dto.OCPIDefaultsResponse{
+		LocationID:    settings.DefaultLocationID,
+		EvseUID:       settings.DefaultEvseUID,
+		OCPIBaseURL:   settings.OCPIBaseURL,
+		PublicBaseURL: settings.PublicBaseURL,
+	}
 }
 
 // ListPartners returns every partner profile.
@@ -101,11 +113,12 @@ func (h *OCPIPartnerHandler) StartSession(w http.ResponseWriter, r *http.Request
 	var req dto.StartSessionRequest
 	json.NewDecoder(r.Body).Decode(&req) // optional body, defaults applied below
 
+	defaults := h.defaults()
 	if req.LocationID == "" {
-		req.LocationID = h.defaults.LocationID
+		req.LocationID = defaults.LocationID
 	}
 	if req.EvseUID == "" {
-		req.EvseUID = h.defaults.EvseUID
+		req.EvseUID = defaults.EvseUID
 	}
 
 	result, err := h.commands.StartSession(chi.URLParam(r, "slug"), req.LocationID, req.EvseUID, req.ConnectorID)
@@ -170,11 +183,12 @@ func (h *OCPIPartnerHandler) ClearEvents(w http.ResponseWriter, r *http.Request)
 
 // applyDefaults fills the URL fields a UI form may leave blank.
 func (h *OCPIPartnerHandler) applyDefaults(partner *entities.OCPIPartner) {
+	defaults := h.defaults()
 	if partner.OCPIBaseURL == "" {
-		partner.OCPIBaseURL = h.defaults.OCPIBaseURL
+		partner.OCPIBaseURL = defaults.OCPIBaseURL
 	}
 	if partner.PublicBaseURL == "" {
-		partner.PublicBaseURL = h.defaults.PublicBaseURL
+		partner.PublicBaseURL = defaults.PublicBaseURL
 	}
 }
 

@@ -3,7 +3,10 @@ package config
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"strconv"
+
+	"EV-Client-Simulator/app/domain/entities"
 )
 
 // Config holds application configuration
@@ -19,14 +22,19 @@ type Config struct {
 
 	// OCPIDataPath is the JSON file holding the OCPI partner profiles.
 	OCPIDataPath string
+	// SettingsPath is the JSON file holding the UI-editable settings. It sits
+	// next to the partner profiles by default.
+	SettingsPath string
 	// OCPIPublicBaseURL is the default public URL of this simulator, used to
 	// build response_url/receiver URLs for new partners.
 	OCPIPublicBaseURL string
 	// OCPIBaseURL is the default OCPI base URL new partners will command.
 	OCPIBaseURL string
-	// OCPIDefaultLocation/OCPIDefaultEVSE prefill the START_SESSION form.
-	OCPIDefaultLocation string
-	OCPIDefaultEVSE     string
+	// OCPIDefaultLocation/OCPIDefaultEVSE/OCPIDefaultConnector prefill the
+	// START_SESSION form.
+	OCPIDefaultLocation  string
+	OCPIDefaultEVSE      string
+	OCPIDefaultConnector string
 
 	// BatteryCapacityKWh is the virtual EV battery size used to derive the
 	// battery percentage shown on the simplified page.
@@ -49,9 +57,24 @@ func Load() *Config {
 	config.OCPIBaseURL = getEnv("OCPI_SIM_BASE_URL", "https://ocpi-dev.nucharge.com.br")
 	config.OCPIDefaultLocation = getEnv("OCPI_SIM_DEFAULT_LOCATION", "")
 	config.OCPIDefaultEVSE = getEnv("OCPI_SIM_DEFAULT_EVSE", "")
+	config.OCPIDefaultConnector = getEnv("OCPI_SIM_DEFAULT_CONNECTOR", "1")
 	config.BatteryCapacityKWh = getEnvFloat("BATTERY_CAPACITY_KWH", 60)
+	config.SettingsPath = getEnv("SIM_SETTINGS_FILE", filepath.Join(filepath.Dir(config.OCPIDataPath), "settings.json"))
 
 	return config
+}
+
+// BootstrapSettings turns the environment into the defaults the settings
+// service starts from. Anything persisted in the settings file wins over these.
+func (c *Config) BootstrapSettings() entities.AppSettings {
+	return entities.AppSettings{
+		OCPIBaseURL:        c.OCPIBaseURL,
+		PublicBaseURL:      c.OCPIPublicBaseURL,
+		DefaultLocationID:  c.OCPIDefaultLocation,
+		DefaultEvseUID:     c.OCPIDefaultEVSE,
+		DefaultConnectorID: c.OCPIDefaultConnector,
+		BatteryCapacityKWh: c.BatteryCapacityKWh,
+	}
 }
 
 // AuthEnabled reports whether basic auth should be enforced.
