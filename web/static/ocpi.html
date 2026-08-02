@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Parceiro OCPI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #16213e;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0f3460;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #00d9ff;
+        }
+
+        .header-links {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .header-link {
+            color: #888;
+            text-decoration: none;
+            font-size: 0.85rem;
+            border: 1px solid #0f3460;
+            padding: 0.35rem 0.75rem;
+            border-radius: 4px;
+        }
+
+        .header-link:hover {
+            color: #00d9ff;
+            border-color: #00d9ff;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            align-items: start;
+        }
+
+        @media (max-width: 1000px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid #0f3460;
+        }
+
+        .panel + .panel { margin-top: 1rem; }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #0f3460;
+            gap: 0.5rem;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            color: #00d9ff;
+        }
+
+        .partner-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .partner-card {
+            background: #1a1a2e;
+            border: 2px solid #0f3460;
+            border-radius: 8px;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .partner-card:hover { border-color: #1e90ff; }
+
+        .partner-card.selected {
+            border-color: #00d9ff;
+            box-shadow: 0 0 16px rgba(0, 217, 255, 0.15);
+        }
+
+        .partner-name {
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .partner-meta {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 0.2rem;
+            word-break: break-all;
+        }
+
+        .empty-state {
+            color: #888;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .form-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .form-item.full { grid-column: 1 / -1; }
+
+        .form-item label {
+            font-size: 0.7rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .form-item input {
+            padding: 0.5rem;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+
+        .form-item input:focus {
+            outline: none;
+            border-color: #00d9ff;
+        }
+
+        .form-item input:disabled {
+            color: #888;
+            background: #12121f;
+        }
+
+        .form-hint {
+            font-size: 0.65rem;
+            color: #666;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: filter 0.2s;
+        }
+
+        .btn:hover:not(:disabled) { filter: brightness(1.15); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary { background: #00d9ff; color: #000; }
+        .btn-success { background: #2ed573; color: #000; }
+        .btn-danger { background: #ff4757; color: #fff; }
+        .btn-secondary { background: #747d8c; color: #fff; }
+
+        .btn-small { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
+
+        .button-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+
+        .command-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .event-list {
+            max-height: 70vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .event {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-left: 4px solid #0f3460;
+            border-radius: 6px;
+            padding: 0.6rem 0.75rem;
+        }
+
+        .event.direction-out { border-left-color: #00d9ff; }
+        .event.direction-in { border-left-color: #2ed573; }
+        .event.auth-failed { border-left-color: #ff4757; }
+
+        .event-head {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .badge-session { background: #1e90ff; color: #fff; }
+        .badge-cdr { background: #2ed573; color: #000; }
+        .badge-location { background: #ffa502; color: #000; }
+        .badge-tariff { background: #e056fd; color: #fff; }
+        .badge-command_result { background: #00d9ff; color: #000; }
+        .badge-command_sent { background: #0f3460; color: #00d9ff; }
+        .badge-auth_failed { background: #ff4757; color: #fff; }
+
+        .event-time {
+            font-size: 0.7rem;
+            color: #888;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .event-path {
+            font-size: 0.7rem;
+            color: #888;
+            font-family: 'Monaco', 'Menlo', monospace;
+            flex: 1;
+            min-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .echo {
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: bold;
+        }
+
+        .echo.ok { background: #2ed573; color: #000; }
+        .echo.fail { background: #ff4757; color: #fff; }
+
+        .event-meta {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-top: 0.35rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            word-break: break-all;
+        }
+
+        .event details {
+            margin-top: 0.4rem;
+        }
+
+        .event summary {
+            cursor: pointer;
+            font-size: 0.7rem;
+            color: #00d9ff;
+        }
+
+        .event pre {
+            background: #0a0a15;
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin-top: 0.35rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.7rem;
+            color: #ccc;
+            overflow-x: auto;
+            max-height: 320px;
+        }
+
+        .message {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.5rem;
+            min-height: 1rem;
+            word-break: break-all;
+        }
+
+        .message.error { color: #ff4757; }
+        .message.success { color: #2ed573; }
+
+        .receiver-url {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.7rem;
+            color: #888;
+            background: #0a0a15;
+            padding: 0.5rem;
+            border-radius: 4px;
+            word-break: break-all;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Simulador de Parceiro OCPI</h1>
+        <div class="header-links">
+            <a class="header-link" href="/simple">Carregador</a>
+            <a class="header-link" href="/">Painel completo</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Parceiros</span>
+                    <button class="btn btn-primary btn-small" id="newPartnerButton">Novo</button>
+                </div>
+                <div class="partner-list" id="partnerList"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title" id="formTitle">Novo parceiro</span>
+                </div>
+                <form id="partnerForm">
+                    <div class="form-grid">
+                        <div class="form-item">
+                            <label for="fieldSlug">Slug</label>
+                            <input id="fieldSlug" name="slug" placeholder="nayax-sim" required>
+                        </div>
+                        <div class="form-item">
+                            <label for="fieldName">Nome</label>
+                            <input id="fieldName" name="name" placeholder="Nayax" required>
+                        </div>
+                        <div class="form-item">
+                            <label for="fieldPartyId">Party ID</label>
+                            <input id="fieldPartyId" name="partyId" maxlength="3" placeholder="NYX" required>
+                        </div>
+                        <div class="form-item">
+                            <label for="fieldCountryCode">Pais</label>
+                            <input id="fieldCountryCode" name="countryCode" maxlength="2" placeholder="BR" required>
+                        </div>
+                        <div class="form-item full">
+                            <label for="fieldTokenToCallUs">Token para chamar a plataforma</label>
+                            <input id="fieldTokenToCallUs" name="tokenToCallUs" placeholder="token_b">
+                            <span class="form-hint">Enviado por nos ao comandar o ocpi-service.</span>
+                        </div>
+                        <div class="form-item full">
+                            <label for="fieldTokenExpected">Token esperado da plataforma</label>
+                            <input id="fieldTokenExpected" name="tokenExpected" placeholder="token_a" required>
+                            <span class="form-hint">Exigido nos pushes que a plataforma envia para nos.</span>
+                        </div>
+                        <div class="form-item full">
+                            <label for="fieldOcpiBaseUrl">URL do OCPI da plataforma</label>
+                            <input id="fieldOcpiBaseUrl" name="ocpiBaseUrl" placeholder="https://ocpi-dev.nucharge.com.br">
+                        </div>
+                        <div class="form-item full">
+                            <label for="fieldPublicBaseUrl">URL publica deste simulador</label>
+                            <input id="fieldPublicBaseUrl" name="publicBaseUrl" placeholder="https://sim-dev.nucharge.com.br">
+                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button type="submit" class="btn btn-success" id="saveButton">Salvar</button>
+                        <button type="button" class="btn btn-secondary" id="cancelButton">Cancelar</button>
+                        <button type="button" class="btn btn-danger" id="deleteButton" style="display:none">Excluir</button>
+                    </div>
+                    <div class="message" id="formMessage"></div>
+                </form>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title" id="commandTitle">Comandos</span>
+                </div>
+                <div id="commandBody">
+                    <div class="empty-state">Selecione um parceiro para enviar comandos.</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Eventos</span>
+                    <button class="btn btn-secondary btn-small" id="clearEventsButton" disabled>Limpar</button>
+                </div>
+                <div class="event-list" id="eventList">
+                    <div class="empty-state">Nenhum evento ainda.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = '/ocpi/api';
+
+        let partners = [];
+        let defaults = {};
+        let selectedSlug = null;
+        let editingSlug = null;
+        let lastEventId = 0;
+        let renderedEvents = 0;
+
+        const FORM_FIELDS = ['slug', 'name', 'partyId', 'countryCode', 'tokenToCallUs', 'tokenExpected', 'ocpiBaseUrl', 'publicBaseUrl'];
+
+        function setFormMessage(text, kind) {
+            const element = document.getElementById('formMessage');
+            element.textContent = text || '';
+            element.className = 'message' + (kind ? ' ' + kind : '');
+        }
+
+        function setCommandMessage(text, kind) {
+            const element = document.getElementById('commandMessage');
+            if (!element) return;
+            element.textContent = text || '';
+            element.className = 'message' + (kind ? ' ' + kind : '');
+        }
+
+        async function request(path, options) {
+            const response = await fetch(API + path, options);
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error((payload.error && payload.error.message) || 'Falha na requisicao');
+            }
+            return payload;
+        }
+
+        async function loadDefaults() {
+            try {
+                defaults = await request('/defaults');
+            } catch (error) {
+                defaults = {};
+            }
+        }
+
+        async function loadPartners() {
+            try {
+                partners = await request('/partners');
+            } catch (error) {
+                partners = [];
+                setFormMessage(error.message, 'error');
+            }
+            renderPartnerList();
+        }
+
+        function renderPartnerList() {
+            const list = document.getElementById('partnerList');
+
+            if (partners.length === 0) {
+                list.innerHTML = '<div class="empty-state">Nenhum parceiro cadastrado.</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            partners.forEach((partner) => {
+                const card = document.createElement('div');
+                card.className = 'partner-card' + (partner.slug === selectedSlug ? ' selected' : '');
+                card.innerHTML =
+                    '<div class="partner-name"></div>' +
+                    '<div class="partner-meta"></div>';
+                card.querySelector('.partner-name').textContent = partner.name;
+                card.querySelector('.partner-meta').textContent =
+                    partner.countryCode + '/' + partner.partyId + ' - ' + partner.slug;
+                card.addEventListener('click', () => selectPartner(partner.slug));
+                list.appendChild(card);
+            });
+        }
+
+        function findPartner(slug) {
+            return partners.find((partner) => partner.slug === slug) || null;
+        }
+
+        function selectPartner(slug) {
+            selectedSlug = slug;
+            lastEventId = 0;
+            renderedEvents = 0;
+            document.getElementById('eventList').innerHTML = '<div class="empty-state">Carregando eventos...</div>';
+            document.getElementById('clearEventsButton').disabled = false;
+
+            renderPartnerList();
+            fillForm(findPartner(slug));
+            renderCommands();
+            pollEvents();
+        }
+
+        function fillForm(partner) {
+            editingSlug = partner ? partner.slug : null;
+
+            FORM_FIELDS.forEach((field) => {
+                const input = document.getElementById('field' + field.charAt(0).toUpperCase() + field.slice(1));
+                input.value = partner ? (partner[field] || '') : '';
+            });
+
+            document.getElementById('fieldSlug').disabled = Boolean(partner);
+            document.getElementById('formTitle').textContent = partner ? 'Editar parceiro' : 'Novo parceiro';
+            document.getElementById('deleteButton').style.display = partner ? 'inline-block' : 'none';
+
+            if (!partner) {
+                document.getElementById('fieldOcpiBaseUrl').value = defaults.ocpiBaseUrl || '';
+                document.getElementById('fieldPublicBaseUrl').value = defaults.publicBaseUrl || '';
+            }
+            setFormMessage('');
+        }
+
+        function renderCommands() {
+            const partner = findPartner(selectedSlug);
+            const body = document.getElementById('commandBody');
+
+            if (!partner) {
+                document.getElementById('commandTitle').textContent = 'Comandos';
+                body.innerHTML = '<div class="empty-state">Selecione um parceiro para enviar comandos.</div>';
+                return;
+            }
+
+            document.getElementById('commandTitle').textContent = 'Comandos - ' + partner.name;
+            body.innerHTML =
+                '<div class="command-grid">' +
+                    '<div class="form-item"><label for="commandLocation">Location ID</label>' +
+                        '<input id="commandLocation"></div>' +
+                    '<div class="form-item"><label for="commandEvse">EVSE UID</label>' +
+                        '<input id="commandEvse"></div>' +
+                    '<div class="form-item"><label for="commandConnector">Connector ID</label>' +
+                        '<input id="commandConnector"></div>' +
+                    '<div class="form-item"><label for="commandSession">Session ID (parar)</label>' +
+                        '<input id="commandSession"></div>' +
+                '</div>' +
+                '<div class="button-row">' +
+                    '<button class="btn btn-success" id="startButton">Iniciar recarga</button>' +
+                    '<button class="btn btn-danger" id="stopButton">Parar recarga</button>' +
+                '</div>' +
+                '<div class="receiver-url" id="receiverUrl"></div>' +
+                '<div class="message" id="commandMessage"></div>';
+
+            document.getElementById('commandLocation').value = defaults.locationId || '';
+            document.getElementById('commandEvse').value = defaults.evseUid || '';
+            document.getElementById('receiverUrl').textContent =
+                'Receiver: ' + partner.publicBaseUrl + '/ocpi/p/' + partner.slug + '/receiver/2.2.1/...';
+
+            document.getElementById('startButton').addEventListener('click', startSession);
+            document.getElementById('stopButton').addEventListener('click', stopSession);
+        }
+
+        async function startSession() {
+            const button = document.getElementById('startButton');
+            button.disabled = true;
+            setCommandMessage('Enviando START_SESSION...');
+
+            try {
+                const result = await request('/partners/' + selectedSlug + '/commands/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        locationId: document.getElementById('commandLocation').value.trim(),
+                        evseUid: document.getElementById('commandEvse').value.trim(),
+                        connectorId: document.getElementById('commandConnector').value.trim()
+                    })
+                });
+                setCommandMessage(describeResult(result), result.statusCode >= 400 ? 'error' : 'success');
+            } catch (error) {
+                setCommandMessage(error.message, 'error');
+            } finally {
+                button.disabled = false;
+                pollEvents();
+            }
+        }
+
+        async function stopSession() {
+            const button = document.getElementById('stopButton');
+            const sessionId = document.getElementById('commandSession').value.trim();
+
+            if (!sessionId) {
+                setCommandMessage('Informe o Session ID para parar a recarga.', 'error');
+                return;
+            }
+
+            button.disabled = true;
+            setCommandMessage('Enviando STOP_SESSION...');
+
+            try {
+                const result = await request('/partners/' + selectedSlug + '/commands/stop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: sessionId })
+                });
+                setCommandMessage(describeResult(result), result.statusCode >= 400 ? 'error' : 'success');
+            } catch (error) {
+                setCommandMessage(error.message, 'error');
+            } finally {
+                button.disabled = false;
+                pollEvents();
+            }
+        }
+
+        function describeResult(result) {
+            if (result.event && result.event.error) {
+                return 'Falha ao contatar a plataforma: ' + result.event.error;
+            }
+            const parts = ['HTTP ' + (result.statusCode || '?')];
+            if (result.contractId) parts.push('contract_id ' + result.contractId);
+            if (result.commandUid) parts.push('uid ' + result.commandUid);
+            return parts.join(' - ');
+        }
+
+        document.getElementById('newPartnerButton').addEventListener('click', () => {
+            selectedSlug = null;
+            renderPartnerList();
+            renderCommands();
+            fillForm(null);
+        });
+
+        document.getElementById('cancelButton').addEventListener('click', () => {
+            fillForm(findPartner(selectedSlug));
+        });
+
+        document.getElementById('partnerForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const body = {};
+            FORM_FIELDS.forEach((field) => {
+                body[field] = document.getElementById('field' + field.charAt(0).toUpperCase() + field.slice(1)).value.trim();
+            });
+
+            const isEditing = Boolean(editingSlug);
+            const path = isEditing ? '/partners/' + editingSlug : '/partners';
+
+            document.getElementById('saveButton').disabled = true;
+            try {
+                const saved = await request(path, {
+                    method: isEditing ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                setFormMessage('Parceiro salvo.', 'success');
+                await loadPartners();
+                selectPartner(saved.slug);
+            } catch (error) {
+                setFormMessage(error.message, 'error');
+            } finally {
+                document.getElementById('saveButton').disabled = false;
+            }
+        });
+
+        document.getElementById('deleteButton').addEventListener('click', async () => {
+            if (!editingSlug || !confirm('Excluir o parceiro ' + editingSlug + '?')) return;
+
+            try {
+                await request('/partners/' + editingSlug, { method: 'DELETE' });
+                selectedSlug = null;
+                await loadPartners();
+                fillForm(null);
+                renderCommands();
+                document.getElementById('eventList').innerHTML = '<div class="empty-state">Nenhum evento ainda.</div>';
+                document.getElementById('clearEventsButton').disabled = true;
+            } catch (error) {
+                setFormMessage(error.message, 'error');
+            }
+        });
+
+        document.getElementById('clearEventsButton').addEventListener('click', async () => {
+            if (!selectedSlug) return;
+
+            try {
+                await request('/partners/' + selectedSlug + '/events', { method: 'DELETE' });
+                lastEventId = 0;
+                renderedEvents = 0;
+                document.getElementById('eventList').innerHTML = '<div class="empty-state">Nenhum evento ainda.</div>';
+            } catch (error) {
+                setFormMessage(error.message, 'error');
+            }
+        });
+
+        function renderEvent(event) {
+            const container = document.createElement('div');
+            container.className = 'event direction-' + event.direction + (event.authFailed ? ' auth-failed' : '');
+
+            const head = document.createElement('div');
+            head.className = 'event-head';
+
+            const badge = document.createElement('span');
+            badge.className = 'badge badge-' + event.kind;
+            badge.textContent = event.kind.replace('_', ' ');
+            head.appendChild(badge);
+
+            const time = document.createElement('span');
+            time.className = 'event-time';
+            time.textContent = new Date(event.timestamp).toLocaleTimeString('pt-BR');
+            head.appendChild(time);
+
+            const path = document.createElement('span');
+            path.className = 'event-path';
+            path.textContent = event.method + ' ' + event.path;
+            path.title = event.path;
+            head.appendChild(path);
+
+            if (event.echoOk !== undefined && event.echoOk !== null) {
+                const echo = document.createElement('span');
+                echo.className = 'echo ' + (event.echoOk ? 'ok' : 'fail');
+                echo.textContent = event.echoOk ? 'echo ok' : 'echo falhou';
+                if (!event.echoOk && event.echoDiff) {
+                    echo.textContent += ' (' + event.echoDiff.join(', ') + ')';
+                }
+                head.appendChild(echo);
+            }
+
+            container.appendChild(head);
+
+            const metaParts = [];
+            if (event.statusCode) metaParts.push('HTTP ' + event.statusCode);
+            if (event.sessionId) metaParts.push('session ' + event.sessionId);
+            if (event.commandUid) metaParts.push('uid ' + event.commandUid);
+            if (event.contractId) metaParts.push('contract_id ' + event.contractId);
+            if (event.tokenUid) metaParts.push('token ' + event.tokenUid);
+            if (event.error) metaParts.push('erro: ' + event.error);
+
+            if (metaParts.length > 0) {
+                const meta = document.createElement('div');
+                meta.className = 'event-meta';
+                meta.textContent = metaParts.join(' | ');
+                container.appendChild(meta);
+            }
+
+            if (event.body !== undefined && event.body !== null) {
+                const details = document.createElement('details');
+                const summary = document.createElement('summary');
+                summary.textContent = 'Ver payload';
+                details.appendChild(summary);
+
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(event.body, null, 2);
+                details.appendChild(pre);
+                container.appendChild(details);
+            }
+
+            return container;
+        }
+
+        async function pollEvents() {
+            if (!selectedSlug) return;
+
+            const slugAtRequest = selectedSlug;
+            let payload;
+            try {
+                payload = await request('/partners/' + slugAtRequest + '/events?after=' + lastEventId);
+            } catch (error) {
+                return;
+            }
+
+            // The selection may have changed while the request was in flight.
+            if (slugAtRequest !== selectedSlug) return;
+
+            const list = document.getElementById('eventList');
+            if (renderedEvents === 0 && payload.events.length === 0) {
+                list.innerHTML = '<div class="empty-state">Nenhum evento ainda.</div>';
+                return;
+            }
+
+            if (renderedEvents === 0) {
+                list.innerHTML = '';
+            }
+
+            payload.events.forEach((event) => {
+                list.insertBefore(renderEvent(event), list.firstChild);
+                renderedEvents++;
+            });
+
+            lastEventId = payload.lastId || lastEventId;
+        }
+
+        async function init() {
+            await loadDefaults();
+            await loadPartners();
+            fillForm(null);
+
+            if (partners.length > 0) {
+                selectPartner(partners[0].slug);
+            }
+
+            setInterval(pollEvents, 2000);
+        }
+
+        init();
+    </script>
+</body>
+</html>
