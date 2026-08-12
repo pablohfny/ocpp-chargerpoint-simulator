@@ -52,21 +52,33 @@ func (controller *ChargerStationMessagingController) IsConnected() *bool {
 	return &controller.connected
 }
 
-// Reconnect attempts to reconnect the WebSocket
+// Reconnect attempts to reconnect the WebSocket. Listening has to be resumed
+// here: the Listen goroutine ends when the connection drops, so a reconnect
+// without it leaves the simulator deaf to everything the CSMS sends.
 func (controller *ChargerStationMessagingController) Reconnect() error {
-	controller.connected = false
+	if controller.connected {
+		return fmt.Errorf("already connected")
+	}
+
 	if err := controller.client.Reconnect(); err != nil {
 		return err
 	}
+
 	controller.connected = true
+	go controller.client.Listen(controller.serverMessagesChannel)
+
 	return nil
 }
 
 // Disconnect closes the WebSocket connection
 func (controller *ChargerStationMessagingController) Disconnect() error {
+	if !controller.connected {
+		return nil
+	}
+
 	controller.connected = false
-	controller.client.Disconnect()
-	return nil
+
+	return controller.client.Disconnect()
 }
 
 func (controller *ChargerStationMessagingController) Init() {
@@ -126,12 +138,7 @@ func (controller *ChargerStationMessagingController) sendMessages() {
 
 		err := controller.client.Send(message, message.Type == 2)
 		if err != nil {
-			controller.close()
+			controller.Disconnect()
 		}
 	}
-}
-
-func (controller *ChargerStationMessagingController) close() {
-	defer controller.wg.Done()
-	controller.client.Disconnect()
 }

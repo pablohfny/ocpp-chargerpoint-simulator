@@ -18,6 +18,7 @@ type WebSocketClient struct {
 	serverAddr      string
 	isConnected     bool
 	stopReconnect   chan struct{}
+	stopped         bool
 }
 
 func NewWebsocketClient(serverAddr string, clientId string) (*WebSocketClient, error) {
@@ -99,17 +100,31 @@ func (client *WebSocketClient) GetConn() any {
 }
 
 func (client *WebSocketClient) Listen(messagesChannel chan entities.Message) {
+	// The listener binds to the connection it was started with. A disconnect or
+	// a manual reconnect retires that pair, so a goroutine left over from an
+	// older socket cannot claim the new one.
+	client.mu.Lock()
+	conn := client.conn
+	stop := client.stopReconnect
+	client.mu.Unlock()
+
 	defer func() {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+
 		client.isConnected = false
 		client.reconnect(messagesChannel)
 	}()
 
 	for {
 		select {
-		case <-client.stopReconnect:
+		case <-stop:
 			return
 		default:
-			_, rawMessage, err := client.conn.ReadMessage()
+			_, rawMessage, err := conn.ReadMessage()
 
 			if err != nil {
 				fmt.Printf("Client %s: error reading message: %v\n", client.Id, err)
@@ -241,12 +256,24 @@ func (client *WebSocketClient) SendPeriodically(message entities.Message, expect
 	return err
 }
 
+// Disconnect closes the socket and stops the auto-reconnect loop. It is reached
+// from the UI, from the shutdown hook and from a failed send, so closing the
+// stop channel twice has to be harmless.
 func (client *WebSocketClient) Disconnect() error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 
-	close(client.stopReconnect)
 	client.isConnected = false
+
+	if !client.stopped {
+		client.stopped = true
+		close(client.stopReconnect)
+	}
+
+	if client.conn == nil {
+		return nil
+	}
+
 	return client.conn.Close()
 }
 
@@ -254,7 +281,12 @@ func (client *WebSocketClient) Reconnect() error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 
-	// Close existing connection if open
+	// Retire the previous socket and its listener before dialing again.
+	if !client.stopped {
+		client.stopped = true
+		close(client.stopReconnect)
+	}
+
 	if client.conn != nil {
 		client.conn.Close()
 	}
@@ -274,6 +306,7 @@ func (client *WebSocketClient) Reconnect() error {
 			client.conn = conn
 			client.isConnected = true
 			client.stopReconnect = make(chan struct{})
+			client.stopped = false
 			return nil
 		}
 

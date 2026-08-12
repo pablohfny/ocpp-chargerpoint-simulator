@@ -157,18 +157,63 @@ Sim.showTab = function (name) {
     if (tab.activate) tab.activate();
 };
 
+// ---------- OCPP connection ----------
+
+let connectionUp = false;
+let connectionBusy = false;
+
 // syncConnection keeps the header dot honest about the OCPP WebSocket.
 Sim.syncConnection = async function () {
     try {
         const connection = await Sim.request(Sim.API + '/status/connection');
-        document.getElementById('connectionDot').className = 'dot' + (connection.connected ? ' on' : '');
-        document.getElementById('connectionText').textContent = connection.connected ? 'Conectado' : 'Desconectado';
+        connectionUp = Boolean(connection.connected);
         document.getElementById('stationId').textContent = connection.clientId + ' → ' + connection.serverAddr;
+        renderConnection(true);
     } catch (error) {
-        document.getElementById('connectionDot').className = 'dot';
-        document.getElementById('connectionText').textContent = 'Simulador fora do ar';
+        connectionUp = false;
+        renderConnection(false);
     }
 };
+
+// renderConnection paints the header dot, its label and the toggle button.
+// reachable says whether the simulator itself answered, which is a different
+// thing from the charger being connected to the CSMS.
+function renderConnection(reachable) {
+    document.getElementById('connectionDot').className = 'dot' + (connectionUp ? ' on' : '');
+    document.getElementById('connectionText').textContent = reachable
+        ? (connectionUp ? 'Conectado' : 'Desconectado')
+        : 'Simulador fora do ar';
+
+    const button = document.getElementById('connectionToggle');
+    button.textContent = connectionUp ? 'Desconectar' : 'Reconectar';
+    button.className = 'btn btn-small' + (connectionUp ? ' btn-danger' : '');
+    button.disabled = connectionBusy || !reachable;
+}
+
+// toggleConnection drops or re-opens the OCPP WebSocket, so a charger that
+// falls off the network can be simulated without restarting the process.
+async function toggleConnection() {
+    const action = connectionUp ? 'disconnect' : 'reconnect';
+    connectionBusy = true;
+    renderConnection(true);
+    setConnectionMessage(connectionUp ? 'Desconectando...' : 'Reconectando...');
+
+    try {
+        await Sim.post(Sim.API + '/actions/station/' + action);
+        setConnectionMessage('');
+    } catch (error) {
+        setConnectionMessage(error.message, 'error');
+    } finally {
+        connectionBusy = false;
+        Sim.syncConnection();
+    }
+}
+
+function setConnectionMessage(text, kind) {
+    const element = document.getElementById('connectionMessage');
+    element.textContent = text || '';
+    element.className = 'topbar-message' + (kind ? ' ' + kind : '');
+}
 
 // boot wires the tabs, restores the tab from the URL fragment and starts the
 // single polling loop that refreshes whichever tab is on screen.
@@ -182,6 +227,8 @@ Sim.boot = function () {
     window.addEventListener('hashchange', () => {
         Sim.showTab(window.location.hash.replace('#', ''));
     });
+
+    document.getElementById('connectionToggle').addEventListener('click', toggleConnection);
 
     Object.keys(Sim.tabs).forEach((name) => {
         if (Sim.tabs[name].init) Sim.tabs[name].init();

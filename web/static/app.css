@@ -94,6 +94,13 @@ body {
 
 .dot.on { background: var(--green); }
 
+.topbar-message {
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+.topbar-message.error { color: var(--red); }
+
 .topbar-link {
     color: var(--muted);
     text-decoration: none;
