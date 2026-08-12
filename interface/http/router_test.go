@@ -185,6 +185,27 @@ func TestCockpitPageRouting(t *testing.T) {
 	}
 }
 
+// TestCockpitAssetsMustBeRevalidated guards the trap that made a deploy look
+// like a no-op: a browser holding yesterday's app.js next to today's HTML.
+func TestCockpitAssetsMustBeRevalidated(t *testing.T) {
+	paths := []string{"/", "/app.js", "/app.css", "/legacy"}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			mockRouter := newFullRouter(t, "", "")
+
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			recorder := httptest.NewRecorder()
+			mockRouter.ServeHTTP(recorder, req)
+
+			actualCacheControl := recorder.Header().Get("Cache-Control")
+			if actualCacheControl != "no-cache" {
+				t.Errorf("Cache-Control = %q, expected %q", actualCacheControl, "no-cache")
+			}
+		})
+	}
+}
+
 // TestPipelineRoutesAreServed proves the cockpit's own API is wired and behind
 // the same basic auth as the rest of the control plane.
 func TestPipelineRoutesAreServed(t *testing.T) {

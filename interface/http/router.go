@@ -184,11 +184,23 @@ func RegisterRoutes(router *chi.Mux, deps RouteDependencies) {
 	// The unified cockpit lives at /, served by the file server below. The old
 	// standalone pages redirect onto their tab so bookmarks keep working, and
 	// the full legacy panel stays reachable during the transition.
-	router.Method(http.MethodGet, "/legacy", protect(servePage(staticPath, "legacy.html")))
+	router.Method(http.MethodGet, "/legacy", protect(revalidate(servePage(staticPath, "legacy.html"))))
 	router.Method(http.MethodGet, "/simple", protect(redirectTo("/#carregador")))
 	router.Method(http.MethodGet, "/ocpi", protect(redirectTo("/#parceiros")))
 
-	router.Handle("/*", protect(http.FileServer(http.Dir(staticPath))))
+	router.Handle("/*", protect(revalidate(http.FileServer(http.Dir(staticPath)))))
+}
+
+// revalidate forbids the browser from reusing a cached asset without asking.
+// The file server only sends Last-Modified, and with no Cache-Control a browser
+// is free to guess a freshness window from the file's age — which after a
+// redeploy means a fresh index.html running yesterday's app.js. "no-cache"
+// still allows a cheap 304, it just removes the guessing.
+func revalidate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // servePage serves a single HTML file from the static directory.

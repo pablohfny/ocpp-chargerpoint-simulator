@@ -98,30 +98,45 @@ func TestReconnectResumesListening(t *testing.T) {
 		t.Error("expected the controller to report a live connection")
 	}
 
-	// Listen runs in its own goroutine, so give it a moment to be counted.
+	waitForListens(t, mockClient, 1)
+}
+
+// waitForListens waits for the listener goroutine the reconnect spawns, since a
+// count read straight after the call would race it.
+func waitForListens(t *testing.T, mockClient *mockMessagingClient, expected int) {
+	t.Helper()
+
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
-		if _, _, listens := mockClient.counts(); listens == 1 {
+		if _, _, actual := mockClient.counts(); actual == expected {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	_, _, actualListens := mockClient.counts()
-	t.Errorf("expected the reconnect to resume listening once, got %d", actualListens)
+	_, _, actual := mockClient.counts()
+	t.Errorf("expected %d listener(s) after the reconnect, got %d", expected, actual)
 }
 
-func TestReconnectWhileConnectedIsRejected(t *testing.T) {
+// A live-looking connection must still be re-dialable: a socket that went stale
+// without anyone noticing is exactly what the button is pressed for.
+func TestReconnectWhileConnectedRedials(t *testing.T) {
 	mockClient := &mockMessagingClient{}
 	controller := newTestController(mockClient)
 
-	if err := controller.Reconnect(); err == nil {
-		t.Fatal("expected a reconnect on a live connection to be refused")
+	if err := controller.Reconnect(); err != nil {
+		t.Fatalf("reconnect on a live connection failed: %v", err)
 	}
 
-	_, actualReconnects, actualListens := mockClient.counts()
-	if actualReconnects != 0 || actualListens != 0 {
-		t.Errorf("expected no client work, got %d reconnects and %d listens", actualReconnects, actualListens)
+	if !*controller.IsConnected() {
+		t.Error("expected the controller to report a live connection")
+	}
+
+	waitForListens(t, mockClient, 1)
+
+	_, actualReconnects, _ := mockClient.counts()
+	if actualReconnects != 1 {
+		t.Errorf("expected exactly one re-dial, got %d", actualReconnects)
 	}
 }
 

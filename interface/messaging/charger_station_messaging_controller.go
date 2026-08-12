@@ -52,13 +52,13 @@ func (controller *ChargerStationMessagingController) IsConnected() *bool {
 	return &controller.connected
 }
 
-// Reconnect attempts to reconnect the WebSocket. Listening has to be resumed
-// here: the Listen goroutine ends when the connection drops, so a reconnect
-// without it leaves the simulator deaf to everything the CSMS sends.
+// Reconnect re-opens the WebSocket, whether or not the simulator believes it is
+// still up — a link that looks alive but has gone stale is precisely what the
+// button is for. Listening has to be resumed here: the Listen goroutine ends
+// when the connection drops, so a reconnect without it leaves the simulator
+// deaf to everything the CSMS sends.
 func (controller *ChargerStationMessagingController) Reconnect() error {
-	if controller.connected {
-		return fmt.Errorf("already connected")
-	}
+	controller.connected = false
 
 	if err := controller.client.Reconnect(); err != nil {
 		return err
