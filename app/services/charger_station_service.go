@@ -237,8 +237,24 @@ func (service *ChargerStationService) processStartTransactionResult(call entitie
 }
 
 func (service *ChargerStationService) processStopRemoteTransactionCall(message entities.Message) {
-	transactionId := int(message.Payload["transactionId"].(float64))
+	// A CSMS may ask us to stop a transaction we know nothing about (stale id,
+	// restarted simulator, a charge that never actually started). OCPP 1.6 says
+	// answer Rejected; before this guard both the type assertion and the nil
+	// point crashed the whole process with a SIGSEGV, taking every subsequent
+	// test down with it.
+	rawTransactionId, ok := message.Payload["transactionId"].(float64)
+	if !ok {
+		service.sendMessage(factories.CreateRemoteStopTransactionResult(0, message.ID, map[string]interface{}{"status": "Rejected"}))
+		return
+	}
+
+	transactionId := int(rawTransactionId)
 	point := service.station.GetPointByTransaction(transactionId)
+	if point == nil {
+		service.sendMessage(factories.CreateRemoteStopTransactionResult(0, message.ID, map[string]interface{}{"status": "Rejected"}))
+		return
+	}
+
 	service.sendMessage(factories.CreateRemoteStopTransactionResult(point.ID, message.ID, map[string]interface{}{"status": "Accepted"}))
 
 	if err := point.StopTransaction(); err != nil {
