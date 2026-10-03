@@ -16,8 +16,8 @@ func mockNayaxPartner() *entities.OCPIPartner {
 		CountryCode:   "BR",
 		TokenToCallUs: "token-b",
 		TokenExpected: "token-a",
-		OCPIBaseURL:   "https://ocpi-dev.nucharge.com.br",
-		PublicBaseURL: "https://sim-dev.nucharge.com.br",
+		OCPIBaseURL:   "https://ocpi.example.com",
+		PublicBaseURL: "https://sim.example.com",
 	}
 }
 
@@ -32,19 +32,19 @@ func TestBuildResponseURL(t *testing.T) {
 	}{
 		{
 			name:        "start session callback",
-			inputPublic: "https://sim-dev.nucharge.com.br",
+			inputPublic: "https://sim.example.com",
 			inputSlug:   "nayax-sim",
 			inputType:   entities.CommandStartSession,
 			inputUID:    "abc-123",
-			expectedURL: "https://sim-dev.nucharge.com.br/ocpi/p/nayax-sim/commands/START_SESSION/abc-123",
+			expectedURL: "https://sim.example.com/ocpi/p/nayax-sim/commands/START_SESSION/abc-123",
 		},
 		{
 			name:        "stop session callback",
-			inputPublic: "https://sim-dev.nucharge.com.br",
+			inputPublic: "https://sim.example.com",
 			inputSlug:   "nayax-sim",
 			inputType:   entities.CommandStopSession,
 			inputUID:    "abc-124",
-			expectedURL: "https://sim-dev.nucharge.com.br/ocpi/p/nayax-sim/commands/STOP_SESSION/abc-124",
+			expectedURL: "https://sim.example.com/ocpi/p/nayax-sim/commands/STOP_SESSION/abc-124",
 		},
 		{
 			name:        "localhost with port",
@@ -80,12 +80,12 @@ func TestBuildCommandURL(t *testing.T) {
 		{
 			name:        "start session target",
 			inputType:   entities.CommandStartSession,
-			expectedURL: "https://ocpi-dev.nucharge.com.br/ocpi/cpo/2.2.1/commands/START_SESSION",
+			expectedURL: "https://ocpi.example.com/ocpi/cpo/2.2.1/commands/START_SESSION",
 		},
 		{
 			name:        "stop session target",
 			inputType:   entities.CommandStopSession,
-			expectedURL: "https://ocpi-dev.nucharge.com.br/ocpi/cpo/2.2.1/commands/STOP_SESSION",
+			expectedURL: "https://ocpi.example.com/ocpi/cpo/2.2.1/commands/STOP_SESSION",
 		},
 	}
 
@@ -115,7 +115,7 @@ func TestCreateStartSessionCommand(t *testing.T) {
 	})
 
 	expectedCommand := entities.StartSessionCommand{
-		ResponseURL: "https://sim-dev.nucharge.com.br/ocpi/p/nayax-sim/commands/START_SESSION/cmd-uid-1",
+		ResponseURL: "https://sim.example.com/ocpi/p/nayax-sim/commands/START_SESSION/cmd-uid-1",
 		Token: entities.OCPIToken{
 			CountryCode: "BR",
 			PartyID:     "NYX",
@@ -158,7 +158,7 @@ func TestCreateStartSessionCommandJSON(t *testing.T) {
 		t.Fatalf("json.Marshal() returned an error: %v", err)
 	}
 
-	expectedJSON := `{"response_url":"https://sim-dev.nucharge.com.br/ocpi/p/nayax-sim/commands/START_SESSION/cmd-uid-1",` +
+	expectedJSON := `{"response_url":"https://sim.example.com/ocpi/p/nayax-sim/commands/START_SESSION/cmd-uid-1",` +
 		`"token":{"country_code":"BR","party_id":"NYX","uid":"NYX_deadbeef","type":"AD_HOC_USER","contract_id":"PAY0123456789AB",` +
 		`"issuer":"Nayax Simulator","valid":true,"whitelist":"ALLOWED_OFFLINE","last_updated":"2026-08-01T12:30:00Z"},` +
 		`"location_id":"LOC-1","evse_uid":"EVSE-1","connector_id":"1"}`
@@ -200,7 +200,7 @@ func TestCreateStopSessionCommand(t *testing.T) {
 	actualCommand := CreateStopSessionCommand(mockNayaxPartner(), "cmd-uid-2", "sess-1")
 
 	expectedCommand := entities.StopSessionCommand{
-		ResponseURL: "https://sim-dev.nucharge.com.br/ocpi/p/nayax-sim/commands/STOP_SESSION/cmd-uid-2",
+		ResponseURL: "https://sim.example.com/ocpi/p/nayax-sim/commands/STOP_SESSION/cmd-uid-2",
 		SessionID:   "sess-1",
 	}
 	if actualCommand != expectedCommand {

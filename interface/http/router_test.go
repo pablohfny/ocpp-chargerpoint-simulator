@@ -45,8 +45,8 @@ func newFullRouter(t *testing.T, simUser, simPass string) *chi.Mux {
 	eventService := services.NewOCPIEventService(persistence.NewOCPIEventLog(filepath.Join(dir, "events.jsonl")))
 	commandService := services.NewOCPICommandService(partnerService, eventService, &mockCommandClient{})
 	settingsService := services.NewAppSettingsService(entities.AppSettings{
-		OCPIBaseURL:        "https://ocpi-dev.nucharge.com.br",
-		PublicBaseURL:      "https://sim-dev.nucharge.com.br",
+		OCPIBaseURL:        "https://ocpi.example.com",
+		PublicBaseURL:      "https://sim.example.com",
 		BatteryCapacityKWh: 60,
 	}, persistence.NewAppSettingsStore(filepath.Join(dir, "settings.json")))
 	basicAuth := middleware.BasicAuth("test", simUser, simPass)
@@ -243,7 +243,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 	mockRouter := newFullRouter(t, "", "")
 
 	updateRequest := httptest.NewRequest(http.MethodPut, "/api/v1/settings", strings.NewReader(
-		`{"ocpiBaseUrl":"https://ocpi-vps.nucharge.com.br","publicBaseUrl":"https://sim.nucharge.com.br","defaultLocationId":"LOC-9","batteryCapacityKwh":82}`))
+		`{"ocpiBaseUrl":"https://ocpi-alt.example.com","publicBaseUrl":"https://sim-alt.example.com","defaultLocationId":"LOC-9","batteryCapacityKwh":82}`))
 	updateRecorder := httptest.NewRecorder()
 	mockRouter.ServeHTTP(updateRecorder, updateRequest)
 

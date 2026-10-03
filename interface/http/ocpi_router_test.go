@@ -62,15 +62,15 @@ func newOCPITestEnv(t *testing.T, simUser, simPass string) *ocpiTestEnv {
 		CountryCode:   "BR",
 		TokenToCallUs: "token-b",
 		TokenExpected: "token-a",
-		OCPIBaseURL:   "https://ocpi-dev.nucharge.com.br",
-		PublicBaseURL: "https://sim-dev.nucharge.com.br",
+		OCPIBaseURL:   "https://ocpi.example.com",
+		PublicBaseURL: "https://sim.example.com",
 	}); err != nil {
 		t.Fatalf("could not seed partner: %v", err)
 	}
 
 	settingsService := services.NewAppSettingsService(entities.AppSettings{
-		OCPIBaseURL:        "https://ocpi-dev.nucharge.com.br",
-		PublicBaseURL:      "https://sim-dev.nucharge.com.br",
+		OCPIBaseURL:        "https://ocpi.example.com",
+		PublicBaseURL:      "https://sim.example.com",
 		DefaultLocationID:  "LOC-DEFAULT",
 		DefaultEvseUID:     "EVSE-DEFAULT",
 		BatteryCapacityKWh: 60,
@@ -330,7 +330,7 @@ func TestStartSessionDispatchesCommand(t *testing.T) {
 		t.Fatalf("status = %d, expected 200 (body %s)", actualResponse.Code, actualResponse.Body)
 	}
 
-	if mockEnv.client.lastURL != "https://ocpi-dev.nucharge.com.br/ocpi/cpo/2.2.1/commands/START_SESSION" {
+	if mockEnv.client.lastURL != "https://ocpi.example.com/ocpi/cpo/2.2.1/commands/START_SESSION" {
 		t.Errorf("target URL = %q", mockEnv.client.lastURL)
 	}
 	if mockEnv.client.lastToken != "token-b" {

@@ -69,7 +69,7 @@ func newPipelineTestEnv(t *testing.T) *pipelineTestEnv {
 	if _, err := partnerService.Create(entities.OCPIPartner{
 		Slug: "nayax-sim", Name: "Nayax", PartyID: "NYX", CountryCode: "BR",
 		TokenToCallUs: "token-b", TokenExpected: "token-a",
-		OCPIBaseURL: "https://ocpi-dev.nucharge.com.br", PublicBaseURL: "https://sim-dev.nucharge.com.br",
+		OCPIBaseURL: "https://ocpi.example.com", PublicBaseURL: "https://sim.example.com",
 	}); err != nil {
 		t.Fatalf("could not seed partner: %v", err)
 	}
@@ -78,8 +78,8 @@ func newPipelineTestEnv(t *testing.T) *pipelineTestEnv {
 	client := &mockPipelineCommandClient{}
 	commandService := NewOCPICommandService(partnerService, eventService, client)
 	settingsService := NewAppSettingsService(entities.AppSettings{
-		OCPIBaseURL:        "https://ocpi-dev.nucharge.com.br",
-		PublicBaseURL:      "https://sim-dev.nucharge.com.br",
+		OCPIBaseURL:        "https://ocpi.example.com",
+		PublicBaseURL:      "https://sim.example.com",
 		DefaultLocationID:  "LOC-DEFAULT",
 		DefaultEvseUID:     "EVSE-DEFAULT",
 		DefaultConnectorID: "1",

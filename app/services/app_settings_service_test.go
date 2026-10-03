@@ -10,7 +10,7 @@ import (
 
 // bootstrapSettings stands in for what the environment provides at boot.
 var bootstrapSettings = entities.AppSettings{
-	OCPIBaseURL:        "https://ocpi-dev.nucharge.com.br",
+	OCPIBaseURL:        "https://ocpi.example.com",
 	PublicBaseURL:      "http://localhost:8080",
 	DefaultLocationID:  "LOC-ENV",
 	DefaultEvseUID:     "EVSE-ENV",
@@ -25,8 +25,8 @@ func TestSettingsPersistedFileWinsOverEnv(t *testing.T) {
 
 	originalService := NewAppSettingsService(bootstrapSettings, persistence.NewAppSettingsStore(inputPath))
 	if _, err := originalService.Update(entities.AppSettings{
-		OCPIBaseURL:        "https://ocpi-vps.nucharge.com.br",
-		PublicBaseURL:      "https://sim-dev.nucharge.com.br",
+		OCPIBaseURL:        "https://ocpi-alt.example.com",
+		PublicBaseURL:      "https://sim.example.com",
 		DefaultLocationID:  "LOC-UI",
 		DefaultEvseUID:     "EVSE-UI",
 		DefaultConnectorID: "2",
@@ -41,7 +41,7 @@ func TestSettingsPersistedFileWinsOverEnv(t *testing.T) {
 	}
 
 	actualSettings := restartedService.Get()
-	if actualSettings.OCPIBaseURL != "https://ocpi-vps.nucharge.com.br" {
+	if actualSettings.OCPIBaseURL != "https://ocpi-alt.example.com" {
 		t.Errorf("OCPIBaseURL = %q, expected the persisted value", actualSettings.OCPIBaseURL)
 	}
 	if actualSettings.DefaultLocationID != "LOC-UI" || actualSettings.DefaultEvseUID != "EVSE-UI" {
@@ -121,18 +121,18 @@ func TestSettingsUpdateTrimsTrailingSlash(t *testing.T) {
 	actualService := NewAppSettingsService(bootstrapSettings, nil)
 
 	actualSettings, err := actualService.Update(entities.AppSettings{
-		OCPIBaseURL:        "https://ocpi-dev.nucharge.com.br/",
-		PublicBaseURL:      "https://sim-dev.nucharge.com.br/",
+		OCPIBaseURL:        "https://ocpi.example.com/",
+		PublicBaseURL:      "https://sim.example.com/",
 		BatteryCapacityKWh: 60,
 	})
 	if err != nil {
 		t.Fatalf("Update() returned an error: %v", err)
 	}
 
-	if actualSettings.OCPIBaseURL != "https://ocpi-dev.nucharge.com.br" {
+	if actualSettings.OCPIBaseURL != "https://ocpi.example.com" {
 		t.Errorf("OCPIBaseURL = %q, expected the trailing slash to be trimmed", actualSettings.OCPIBaseURL)
 	}
-	if actualSettings.PublicBaseURL != "https://sim-dev.nucharge.com.br" {
+	if actualSettings.PublicBaseURL != "https://sim.example.com" {
 		t.Errorf("PublicBaseURL = %q, expected the trailing slash to be trimmed", actualSettings.PublicBaseURL)
 	}
 }

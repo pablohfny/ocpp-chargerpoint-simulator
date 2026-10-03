@@ -107,6 +107,9 @@ func main() {
 	} else {
 		fmt.Printf("  Basic auth: disabled (set SIM_USER/SIM_PASS to enable)\n")
 	}
+	if settingsService.Get().OCPIBaseURL == "" {
+		fmt.Printf("  OCPI base URL: not set (set OCPI_SIM_BASE_URL or fill it in the Config tab)\n")
+	}
 
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)

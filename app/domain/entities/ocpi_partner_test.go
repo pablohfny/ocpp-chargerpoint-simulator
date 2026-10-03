@@ -98,8 +98,8 @@ func TestOCPIPartnerValidate(t *testing.T) {
 			PartyID:       "NYX",
 			CountryCode:   "BR",
 			TokenExpected: "token-a",
-			OCPIBaseURL:   "https://ocpi-dev.nucharge.com.br",
-			PublicBaseURL: "https://sim-dev.nucharge.com.br",
+			OCPIBaseURL:   "https://ocpi.example.com",
+			PublicBaseURL: "https://sim.example.com",
 		}
 	}
 
@@ -144,8 +144,8 @@ func TestOCPIPartnerNormalize(t *testing.T) {
 		Slug:          "  Nayax-Sim  ",
 		PartyID:       " nyx ",
 		CountryCode:   " br ",
-		OCPIBaseURL:   " https://ocpi-dev.nucharge.com.br/ ",
-		PublicBaseURL: " https://sim-dev.nucharge.com.br/ ",
+		OCPIBaseURL:   " https://ocpi.example.com/ ",
+		PublicBaseURL: " https://sim.example.com/ ",
 	}
 
 	inputPartner.Normalize()
@@ -154,8 +154,8 @@ func TestOCPIPartnerNormalize(t *testing.T) {
 		Slug:          "nayax-sim",
 		PartyID:       "NYX",
 		CountryCode:   "BR",
-		OCPIBaseURL:   "https://ocpi-dev.nucharge.com.br",
-		PublicBaseURL: "https://sim-dev.nucharge.com.br",
+		OCPIBaseURL:   "https://ocpi.example.com",
+		PublicBaseURL: "https://sim.example.com",
 	}
 	if inputPartner != expected {
 		t.Errorf("Normalize() = %+v, expected %+v", inputPartner, expected)

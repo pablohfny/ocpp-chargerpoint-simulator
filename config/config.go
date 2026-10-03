@@ -54,7 +54,7 @@ func Load() *Config {
 	config.SimPass = getEnv("SIM_PASS", "")
 	config.OCPIDataPath = getEnv("OCPI_SIM_DATA", "./data/ocpi-partners.json")
 	config.OCPIPublicBaseURL = getEnv("OCPI_SIM_PUBLIC_URL", "http://localhost:"+config.HTTPPort)
-	config.OCPIBaseURL = getEnv("OCPI_SIM_BASE_URL", "https://ocpi-dev.nucharge.com.br")
+	config.OCPIBaseURL = getEnv("OCPI_SIM_BASE_URL", "")
 	config.OCPIDefaultLocation = getEnv("OCPI_SIM_DEFAULT_LOCATION", "")
 	config.OCPIDefaultEVSE = getEnv("OCPI_SIM_DEFAULT_EVSE", "")
 	config.OCPIDefaultConnector = getEnv("OCPI_SIM_DEFAULT_CONNECTOR", "1")

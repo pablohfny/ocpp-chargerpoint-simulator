@@ -1,4 +1,8 @@
-.PHONY: build run clean
+.PHONY: build run run-local run-dev clean
+
+# Local overrides (copy .env.example to .env); never committed
+-include .env
+export
 
 # Build the simulator
 build:
@@ -10,13 +14,12 @@ run:
 
 # Run with default test settings
 run-local:
-	# CGO_ENABLED=0 go run . --serverAddr ws.star
-	-ev.com --clientId virtual --httpPort 8080
 	CGO_ENABLED=0 go run . --serverAddr localhost:3001 --clientId virtual --httpPort 8080
 
-# Run with default test settings
+# Run against the dev OCPP server (set DEV_SERVER_ADDR in .env)
 run-dev:
-	CGO_ENABLED=0 go run . --serverAddr nestjs-ocpp-server-development.up.railway.app --clientId virtual --httpPort 8080
+	@test -n "$(DEV_SERVER_ADDR)" || (echo "DEV_SERVER_ADDR is not set, see .env.example" && exit 1)
+	CGO_ENABLED=0 go run . --serverAddr $(DEV_SERVER_ADDR) --clientId virtual --httpPort 8080
 
 # Clean build artifacts
 clean:

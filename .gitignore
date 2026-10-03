@@ -7,3 +7,6 @@ simulator
 # OCPI partner profiles hold live credentials, and the event log holds payloads
 data/
 .superpowers
+
+# Local environment, may hold hostnames and credentials
+.env
