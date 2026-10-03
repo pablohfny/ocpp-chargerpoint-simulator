@@ -102,11 +102,22 @@ func (service *ChargerStationService) ProcessResult(result entities.Message) {
 	var call entities.Message
 	var ok bool
 
-	if call, ok = service.recentMessages[result.ID]; !ok {
+	// recentMessages is written by sendMessage from other goroutines (meter
+	// tickers, the Preparing->Charging transition), so every access must hold
+	// the mutex. Without it Go's runtime aborts the whole process with a
+	// "concurrent map read and map write" fatal error, which no recover() can
+	// catch. The lock is released before dispatching, because the handlers
+	// below call sendMessage and would deadlock on this non-reentrant mutex.
+	service.mu.Lock()
+	call, ok = service.recentMessages[result.ID]
+	if ok {
+		delete(service.recentMessages, result.ID)
+	}
+	service.mu.Unlock()
+
+	if !ok {
 		return
 	}
-
-	delete(service.recentMessages, result.ID)
 
 	switch call.Action {
 	case "Authorize":
@@ -291,7 +302,11 @@ func (service *ChargerStationService) NotifyBoot() {
 }
 
 func (service *ChargerStationService) sendMessage(message entities.Message) {
+	// See ProcessResult: this map is shared across goroutines.
+	service.mu.Lock()
 	service.recentMessages[message.ID] = message
+	service.mu.Unlock()
+
 	service.messageChannel <- message
 }
 
