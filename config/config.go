@@ -45,7 +45,7 @@ type Config struct {
 func Load() *Config {
 	config := &Config{}
 
-	flag.StringVar(&config.ServerAddr, "serverAddr", getEnv("SERVER_ADDR", ""), "WebSocket server address")
+	flag.StringVar(&config.ServerAddr, "serverAddr", getEnv("SERVER_ADDR", "localhost:3001"), "WebSocket server address")
 	flag.StringVar(&config.ClientID, "clientId", getEnv("CLIENT_ID", "virtual"), "Client ID (default: virtual)")
 	flag.StringVar(&config.HTTPPort, "httpPort", getEnv("HTTP_PORT", "8080"), "HTTP API port")
 	flag.Parse()
@@ -54,7 +54,7 @@ func Load() *Config {
 	config.SimPass = getEnv("SIM_PASS", "")
 	config.OCPIDataPath = getEnv("OCPI_SIM_DATA", "./data/ocpi-partners.json")
 	config.OCPIPublicBaseURL = getEnv("OCPI_SIM_PUBLIC_URL", "http://localhost:"+config.HTTPPort)
-	config.OCPIBaseURL = getEnv("OCPI_SIM_BASE_URL", "")
+	config.OCPIBaseURL = getEnv("OCPI_SIM_BASE_URL", "http://localhost:3030")
 	config.OCPIDefaultLocation = getEnv("OCPI_SIM_DEFAULT_LOCATION", "")
 	config.OCPIDefaultEVSE = getEnv("OCPI_SIM_DEFAULT_EVSE", "")
 	config.OCPIDefaultConnector = getEnv("OCPI_SIM_DEFAULT_CONNECTOR", "1")
